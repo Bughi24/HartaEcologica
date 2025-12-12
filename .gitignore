@@ -49,4 +49,8 @@ secret.dart
 lib/secret.dart
 
 *.h5
+*.tflite
+training/garabage_classification/
+test/
+datasets/
 

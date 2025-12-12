@@ -28,6 +28,8 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+
+
   flutter:
     sdk: flutter
 
@@ -41,6 +43,11 @@ dependencies:
   google_maps_flutter: ^2.12.3
   geolocator: ^14.0.2
   flutter_dotenv: ^6.0.0
+  tflite_flutter: ^0.11.0
+  image: ^4.1.17
+  
+
+
   
 dev_dependencies:
   flutter_test:
@@ -53,6 +60,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.13.1
+
 
 flutter_icons:
   android: true
@@ -74,6 +82,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets: 
+    - assets/model/garbage_classification_model_v2.tflite
+    - assets/model/labels.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -105,3 +117,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

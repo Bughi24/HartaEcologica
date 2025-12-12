@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the trained model
-model= tf.keras.models.load_model('garbage_classification_model_v2.h5')
+model= tf.keras.models.load_model('garbage_model_augmentation.h5')
 
-img_size = 150
-batch_size = 16
+img_size = 224
+batch_size = 32
 
 datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 

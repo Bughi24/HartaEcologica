@@ -15,14 +15,14 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  List<Marker> _markers = [];
-  LatLng? _userLocation;
-  Set<String> activeFilters = {};
-  LatLng? _selectedDestination;
-  List<LatLng> _routePoints = [];
-  StreamSubscription<Position>? _positionStream;
-  final MapController _mapController = MapController();
-  String? _formattedDistance;
+  List<Marker> _markers = []; // Puncte de reciclare
+  LatLng? _userLocation; //locatie utilizator
+  Set<String> activeFilters = {}; //filtre active
+  LatLng? _selectedDestination; //destinatie selectata
+  List<LatLng> _routePoints = []; //puncte traseu
+  StreamSubscription<Position>? _positionStream; //stream pozitie
+  final MapController _mapController = MapController(); //controller harta
+  String? _formattedDistance; //distanta
 
 
   @override
@@ -38,6 +38,7 @@ class _MapPageState extends State<MapPage> {
     super.dispose();
   }
 
+// Preia punctele de reciclare din Overpass API
   Future<void> _fetchRecyclingPoints() async {
     final overpassQuery = '''
     [out:json][timeout:25];

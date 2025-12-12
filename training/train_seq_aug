@@ -1,0 +1,92 @@
+# pyright: ignore[reportMissingImports]
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
+import os
+
+# PARAMETERS
+IMG_SIZE = 150
+BATCH_SIZE = 32
+EPOCHS = 20
+
+# 1. DATA AUGMENTATION
+datagen = ImageDataGenerator(
+    rescale=1./255,
+    validation_split=0.2,
+    rotation_range=25,
+    width_shift_range=0.15,
+    height_shift_range=0.15,
+    shear_range=0.10,
+    zoom_range=0.20,
+    horizontal_flip=True,
+    fill_mode='nearest'
+)
+
+# TRAINING SET
+train_data = datagen.flow_from_directory(
+    'training/garbage_classification',
+    target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    subset='training'
+)
+
+# VALIDATION SET
+val_data = datagen.flow_from_directory(
+    'training/garbage_classification',
+    target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    subset='validation'
+)
+
+num_classes = train_data.num_classes
+
+# 2. CNN MODEL (Sequential)
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(IMG_SIZE, IMG_SIZE, 3)),
+    MaxPooling2D(2, 2),
+
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D(2, 2),
+
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D(2, 2),
+
+    Flatten(),
+    Dense(256, activation='relu'),
+    Dropout(0.4),
+
+    Dense(128, activation='relu'),
+    Dropout(0.3),
+
+    Dense(num_classes, activation='softmax')
+])
+
+# 3. COMPILE
+model.compile(
+    optimizer='adam',
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# CALLBACKS
+early_stopping = EarlyStopping(
+    monitor='val_loss',
+    patience=5,
+    restore_best_weights=True
+)
+
+# 4. TRAINING
+history = model.fit(
+    train_data,
+    validation_data=val_data,
+    epochs=EPOCHS,
+    callbacks=[early_stopping]
+)
+
+# 5. SAVE
+model.save("garbage_classification_model_sequential_augmented.h5")
+print("Model salvat ca garbage_classification_model_sequential_augmented.h5")
