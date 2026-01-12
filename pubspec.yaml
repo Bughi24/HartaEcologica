@@ -87,6 +87,9 @@ flutter:
     - assets/model/garbage_classification_model_v2.tflite
     - assets/model/labels.txt
 
+    - assets/model/bin_model.tflite
+    - assets/model/bin_labels.txt
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

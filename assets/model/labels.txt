@@ -1,7 +1,7 @@
 battery
+biological
 cardboard
 clothes
-electronics
 glass
 metal
 paper

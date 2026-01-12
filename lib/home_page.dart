@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
+// Pagina principală cu opțiunile de navigare
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      // Fundal cu gradient
+      body: Container( 
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
@@ -14,6 +15,7 @@ class HomePage extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
         ),
+        // Conținutul paginii
         child: SafeArea(
           child: Column(
             children: [
@@ -67,7 +69,7 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
-
+  // Card pentru opțiuni pe Home Page
   Widget buildOptionCard(BuildContext context,
       {required IconData icon, required Color iconColor, required String title, required String route}) {
     return InkWell(
