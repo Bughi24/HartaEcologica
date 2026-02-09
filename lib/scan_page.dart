@@ -18,8 +18,8 @@ class _ScanPageState extends State<ScanPage> {
   String? imagePath;
   bool isBusy = false;
 
-  // --- CONFIGURARE CRITICĂ ---
-  // Trebuie să fie identic cu 'img_size' din Python
+  // --- CONFIGURARE PENTRU MODELUL EXISTENT ---
+  // Păstrăm 150x150 pentru că este stabil și funcțional.
   static const int inputSize = 150; 
 
   @override
@@ -30,17 +30,16 @@ class _ScanPageState extends State<ScanPage> {
 
   Future<void> _initModel() async {
     try {
-      // 1. Încărcare Model
+      // Încărcare Model (versiunea stabilă)
       interpreter = await Interpreter.fromAsset(
         'assets/model/garbage_classification_model_v2.tflite',
       );
 
-      // 2. Încărcare Labels
-      // Asigură-te că fișierul labels.txt este ordonat ALFABETIC!
+      // Încărcare Labels
       final rawLabels = await rootBundle.loadString('assets/model/labels.txt');
       labels = rawLabels.split('\n').where((e) => e.trim().isNotEmpty).toList();
       
-      print("Model încărcat. Labels: ${labels.length}");
+      print("Model stabil încărcat. Labels: ${labels.length}");
     } catch (e) {
       debugPrint("EROARE ÎNCĂRCARE MODEL: $e");
     }
@@ -48,10 +47,12 @@ class _ScanPageState extends State<ScanPage> {
 
   Future<void> pickImage() async {
     final picker = ImagePicker();
-    // Luăm imaginea la o calitate bună, dar nu exagerată
+    // Setări optimizate pentru o calitate mai bună a pozei
     final XFile? file = await picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 1024, 
+      maxWidth: 1024, // Rezoluție decentă pentru claritate
+      imageQuality: 100, // Calitate maximă
+      preferredCameraDevice: CameraDevice.rear,
     );
 
     if (file == null) return;
@@ -64,10 +65,11 @@ class _ScanPageState extends State<ScanPage> {
     // Mică pauză pentru ca UI-ul să se randeze
     await Future.delayed(const Duration(milliseconds: 100));
     
-    // Pornim clasificarea
+    // Pornim clasificarea inteligentă
     await classify(File(file.path));
   }
 
+  // --- LOGICA DE CLASIFICARE CU "VOTARE" (Ensemble) ---
   Future<void> classify(File imageFile) async {
     if (interpreter == null) {
       print("Interpreter este null!");
@@ -76,72 +78,54 @@ class _ScanPageState extends State<ScanPage> {
     }
 
     try {
-      // --- PASUL 1: Citire și Decodare ---
       final bytes = await imageFile.readAsBytes();
       img.Image? originalImage = img.decodeImage(bytes);
 
       if (originalImage == null) return;
 
-      // --- PASUL 2: Preprocesare Geometrică ---
-      // a) Corectăm rotația (pentru poze portrait)
-      img.Image orientedImage = img.bakeOrientation(originalImage);
+      // 1. Imaginea de bază (orientare corectă)
+      img.Image baseImage = img.bakeOrientation(originalImage);
 
-      // b) Tăiem un pătrat din centru și redimensionăm la 150x150
-      // Aceasta previne deformarea/turtirea obiectelor
-      img.Image resized = img.copyResizeCropSquare(orientedImage, size: inputSize);
+      // Inițializăm lista de scoruri (acumulator) cu 0.0
+      List<double> totalScores = List.filled(labels.length, 0.0);
 
-      // --- PASUL 3: Conversie și Normalizare ---
-      // Python: rescale=1./255  => Valori 0.0 ... 1.0
-      var input = List.generate(
-        1,
-        (batch) => List.generate(
-          inputSize,
-          (y) => List.generate(
-            inputSize,
-            (x) {
-              final pixel = resized.getPixel(x, y);
-              // Extragem canalele RGB și le împărțim la 255.0
-              return [
-                pixel.r / 255.0, 
-                pixel.g / 255.0, 
-                pixel.b / 255.0
-              ];
-            },
-          ),
-        ),
-      );
+      // --- RUNDA 1: Imagine Normală ---
+      await _runInference(baseImage, totalScores);
 
-      // Buffer pentru rezultat [1, 10]
-      var output = List.filled(1 * labels.length, 0.0).reshape([1, labels.length]);
+      // --- RUNDA 2: Imagine Rotită (90 grade) ---
+      // Ajută mult dacă utilizatorul ține telefonul sau obiectul puțin strâmb
+      img.Image rotated = img.copyRotate(baseImage, angle: 90);
+      await _runInference(rotated, totalScores);
 
-      // --- PASUL 4: Inferență (Rulează modelul) ---
-      interpreter!.run(input, output);
+      // --- RUNDA 3: Imagine Oglindită (Flip Horizontal) ---
+      // Ajută modelul să recunoască forma indiferent de cum e așezată stânga/dreapta
+      img.Image flipped = img.copyFlip(baseImage, direction: img.FlipDirection.horizontal);
+      await _runInference(flipped, totalScores);
 
-      // --- PASUL 5: Interpretare Rezultate ---
-      final scores = output[0] as List<double>;
-      
+      // --- CALCUL FINAL (Media celor 3 runde) ---
       double maxScore = -1;
       int maxIdx = -1;
 
-      // Găsim cel mai mare scor
-      for (int i = 0; i < scores.length; i++) {
-        if (scores[i] > maxScore) {
-          maxScore = scores[i];
+      for (int i = 0; i < totalScores.length; i++) {
+        // Împărțim la 3.0 pentru a obține media reală (0.0 - 1.0)
+        double avgScore = totalScores[i] / 3.0;
+        
+        if (avgScore > maxScore) {
+          maxScore = avgScore;
           maxIdx = i;
         }
       }
 
       String detectedLabel = labels[maxIdx];
-      
-      // LOG DE DEBUG (Să vezi în consolă ce se întâmplă)
+
+      // LOG DEBUG
       print("------------------------------------------------");
-      print("Detectat: $detectedLabel cu încredere: ${(maxScore * 100).toStringAsFixed(1)}%");
-      
-      // --- PASUL 6: Filtru de Siguranță ---
-      // Dacă modelul e mai puțin de 60% sigur, probabil greșește (ex: șervețel văzut ca telefon)
-      if (maxScore < 0.60) {
-        print("Scor sub pragul de siguranță. Redirecționare către Trash/Unknown.");
-        detectedLabel = 'trash'; // Sau o categorie 'unknown' dacă ai logică pt ea
+      print("REZULTAT FINAL (MEDIE): $detectedLabel (${(maxScore * 100).toStringAsFixed(1)}%)");
+
+      // Prag de siguranță (putem fi mai permisivi, media e mai stabilă)
+      if (maxScore < 0.55) {
+        print("Scor sub pragul de siguranță.");
+        detectedLabel = 'trash'; 
       }
 
       setState(() => isBusy = false);
@@ -154,6 +138,43 @@ class _ScanPageState extends State<ScanPage> {
     } catch (e) {
       debugPrint("Eroare la clasificare: $e");
       setState(() => isBusy = false);
+    }
+  }
+
+  // --- FUNCȚIE AJUTĂTOARE (Rulează modelul o singură dată) ---
+  Future<void> _runInference(img.Image imgToAnalyze, List<double> accumulator) async {
+    // Resize la 150x150 (pentru modelul vechi)
+    img.Image resized = img.copyResizeCropSquare(imgToAnalyze, size: inputSize);
+
+    // Normalizare (0-255 -> 0.0-1.0)
+    var input = List.generate(
+      1,
+      (batch) => List.generate(
+        inputSize,
+        (y) => List.generate(
+          inputSize,
+          (x) {
+            final pixel = resized.getPixel(x, y);
+            return [
+              pixel.r / 255.0, 
+              pixel.g / 255.0, 
+              pixel.b / 255.0
+            ];
+          },
+        ),
+      ),
+    );
+
+    // Buffer pentru output
+    var output = List.filled(1 * labels.length, 0.0).reshape([1, labels.length]);
+    
+    // Execuția
+    interpreter!.run(input, output);
+    
+    // Adăugăm rezultatele acestei runde la scorul total din accumulator
+    var scores = output[0] as List<double>;
+    for (int i = 0; i < scores.length; i++) {
+      accumulator[i] += scores[i];
     }
   }
 
@@ -211,7 +232,10 @@ class _ScanPageState extends State<ScanPage> {
                 children: [
                   CircularProgressIndicator(color: Colors.green),
                   SizedBox(height: 15),
-                  Text("Analizez imaginea...", style: TextStyle(color: Colors.white70))
+                  Text(
+                    "Analizez inteligent...", 
+                    style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)
+                  )
                 ],
               )
             else

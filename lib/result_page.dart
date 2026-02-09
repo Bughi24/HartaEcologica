@@ -3,12 +3,8 @@ import 'package:flutter/material.dart';
 class ResultPage extends StatelessWidget {
   const ResultPage({super.key});
 
-  // ---- LOGICA DE DATE (Culori, Texte, Traduceri) ----
   Map<String, dynamic> getWasteInfo(String category) {
-    // 1. CURĂȚARE: Eliminăm spațiile și facem litere mici
     String clean = category.trim().toLowerCase();
-
-    // 2. LOGICA DE DETECȚIE
 
     // --- BIOLOGIC / BIODEGRADABIL (NOU ADĂUGAT) ---
     // Prinde cuvinte ca: organic, food, vegetable, fruit, compost
@@ -20,7 +16,7 @@ class ResultPage extends StatelessWidget {
         clean.contains('compost')) {
       return {
         'title': 'BIODEGRADABIL',
-        'color': const Color(0xFF795548), // Maro
+        'color': const Color(0xFF795548), 
         'icon': Icons.compost_rounded,
         'advice': 'Resturi de fructe, legume, zaț de cafea, coji de ouă.\nNU folosi pungi de plastic, doar biodegradabile!',
         'bin': 'PUBELA MARO'
@@ -53,7 +49,7 @@ class ResultPage extends StatelessWidget {
     if (clean.contains('cardboard') || clean.contains('box')) {
       return {
         'title': 'CARTON',
-        'color': const Color(0xFF1565C0), // Albastru închis
+        'color': const Color(0xFF1565C0), 
         'icon': Icons.inventory_2_rounded,
         'advice': 'Pliază cutiile pentru a ocupa mai puțin spațiu.\nScoate banda adezivă de plastic.',
         'bin': 'PUBELA ALBASTRĂ'
@@ -64,7 +60,7 @@ class ResultPage extends StatelessWidget {
     if (clean.contains('paper') || clean.contains('newspaper') || clean.contains('magazine')) {
       return {
         'title': 'HÂRTIE',
-        'color': const Color(0xFF1976D2), // Albastru
+        'color': const Color(0xFF1976D2), 
         'icon': Icons.description_rounded,
         'advice': 'Asigură-te că hârtia este curată și uscată.\nHârtia murdară de ulei/mâncare merge la menajer.',
         'bin': 'PUBELA ALBASTRĂ'
@@ -75,7 +71,7 @@ class ResultPage extends StatelessWidget {
     if (clean.contains('plastic') || clean.contains('bottle')) {
       return {
         'title': 'PLASTIC',
-        'color': const Color(0xFFFFCA28), // Galben
+        'color': const Color(0xFFFFCA28), 
         'icon': Icons.local_drink_rounded,
         'advice': 'Clătește recipientul și presează-l (zdrobește-l).\nDopurile se reciclează tot aici.',
         'bin': 'PUBELA GALBENĂ'
@@ -97,7 +93,7 @@ class ResultPage extends StatelessWidget {
     if (clean.contains('glass') || clean.contains('jar')) {
       return {
         'title': 'STICLĂ',
-        'color': const Color(0xFF43A047), // Verde
+        'color': const Color(0xFF43A047), 
         'icon': Icons.wine_bar_rounded,
         'advice': 'Borcane și sticle.\nSpală-le înainte! Capacele metalice merg la galben.',
         'bin': 'PUBELA VERDE / CLOPOT'
@@ -119,7 +115,7 @@ class ResultPage extends StatelessWidget {
     if (clean.contains('trash') || clean.contains('garbage') || clean.contains('waste')) {
       return {
         'title': 'MENAJER / MIXT',
-        'color': const Color(0xFF424242), // Gri închis
+        'color': const Color(0xFF424242), 
         'icon': Icons.delete_outline_rounded,
         'advice': 'Deșeu care nu se poate recicla sau AI-ul nu l-a recunoscut clar.\nSe aruncă la gunoiul menajer.',
         'bin': 'PUBELA NEAGRĂ'
@@ -138,15 +134,14 @@ class ResultPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Preluăm argumentul trimis din ecranul anterior
+  
     final String categoryArg = (ModalRoute.of(context)?.settings.arguments as String?) ?? 'unknown';
     
-    // 2. Obținem datele
     final info = getWasteInfo(categoryArg);
     final Color mainColor = info['color'];
 
     return Scaffold(
-      // Fundal cu gradient subtil
+  
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -163,7 +158,6 @@ class ResultPage extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              // --- APP BAR CUSTOM ---
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 child: Row(
@@ -183,7 +177,7 @@ class ResultPage extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    const SizedBox(width: 40), // Balansare spațiu
+                    const SizedBox(width: 40), 
                   ],
                 ),
               ),
@@ -197,8 +191,7 @@ class ResultPage extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
-                      
-                      // 1. Cerc Iconiță cu Efect de "Glow"
+                      // --- ICONIȚA ---
                       Container(
                         padding: const EdgeInsets.all(35),
                         decoration: BoxDecoration(
@@ -222,12 +215,11 @@ class ResultPage extends StatelessWidget {
 
                       const SizedBox(height: 30),
 
-                      // 2. Titlu Categorie
                       Text(
                         info['title'],
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 32, // Ușor micșorat ca să încapă "BIODEGRADABIL"
+                          fontSize: 32, 
                           fontWeight: FontWeight.w900,
                           color: mainColor,
                           letterSpacing: 1.5,
@@ -235,8 +227,7 @@ class ResultPage extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 10),
-
-                      // 3. Eticheta Recipient
+                      // --- PUBELA RECOMANDATĂ ---
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         decoration: BoxDecoration(
@@ -268,8 +259,7 @@ class ResultPage extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 40),
-
-                      // 4. Cardul cu Sfaturi
+                      // --- SECȚIUNEA DE SFATURI ---
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(25),

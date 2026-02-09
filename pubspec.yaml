@@ -84,10 +84,11 @@ flutter:
   uses-material-design: true
 
   assets: 
+    - assets/model/
+    - assets/model/model_aug.tflite
     - assets/model/garbage_classification_model_v2.tflite
-    - assets/model/labels.txt
-
     - assets/model/bin_model.tflite
+    - assets/model/labels.txt
     - assets/model/bin_labels.txt
 
   # To add assets to your application, add an assets section, like this:
