@@ -3,8 +3,18 @@ import 'home_page.dart';
 import 'scan_page.dart';
 import 'result_page.dart';
 import 'map_page.dart';
+import 'firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() => runApp(TrashSelectorApp());
+void main() async {
+
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const TrashSelectorApp());
+}
 
 class TrashSelectorApp extends StatelessWidget {
   const TrashSelectorApp({super.key});

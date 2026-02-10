@@ -61,6 +61,7 @@ class _AddBinPageState extends State<AddBinPage> {
         imagePath = file.path;
         isBusy = true;
         hasAnalyzed = false;
+        isValidBin = false;
       });
       
       await Future.delayed(const Duration(milliseconds: 200));
@@ -69,56 +70,65 @@ class _AddBinPageState extends State<AddBinPage> {
   }
 
   Future<void> validateBin(File imageFile) async {
-    if (interpreter == null) return;
+    if (interpreter == null) {
+      print("Interpreter is null");
+      return;
+    }
 
     try {
-      
       final bytes = await imageFile.readAsBytes();
-      img.Image? image = img.decodeImage(bytes);
-      if (image == null) return;
+      img.Image? originalImage = img.decodeImage(bytes);
+      if (originalImage == null) return;
 
-      image = img.bakeOrientation(image);
+      // 1. Orientare și redimensionare
+      img.Image image = img.bakeOrientation(originalImage);
       img.Image resized = img.copyResize(image, width: inputSize, height: inputSize);
 
-      // Normalizare (0.0 - 1.0)
+      // 2. Normalizare (0.0 - 1.0) exact ca în Python (rescale=1./255)
       var input = List.generate(1, (batch) => List.generate(inputSize, (y) => List.generate(inputSize, (x) {
         final p = resized.getPixel(x, y);
         return [p.r / 255.0, p.g / 255.0, p.b / 255.0];
       })));
 
-      var output = List.filled(labels.length, 0.0).reshape([1, labels.length]);
+      // --- MODIFICARE AICI ---
+      // Modelul binar are output [1, 1] (un singur scor)
+      var output = List.filled(1 * 1, 0.0).reshape([1, 1]);
 
-      
+      // 3. Rulăm modelul
       interpreter!.run(input, output);
 
-      final scores = output[0] as List<double>;
-      double maxScore = -1;
-      int maxIdx = -1;
-      for (int i = 0; i < scores.length; i++) {
-        if (scores[i] > maxScore) {
-          maxScore = scores[i];
-          maxIdx = i;
-        }
-      }
-
-      String detectedLabel = labels[maxIdx]; 
+      // 4. Citim scorul (o singură valoare între 0 și 1)
+      double score = output[0][0];
       
-      print("AI Rezultat: $detectedLabel ($maxScore)");
+      print("Scor AI: $score"); 
+
+      // 5. Interpretare (Bazat pe ordinea alfabetică: 0=altele, 1=pubela)
+      // Dacă scorul e > 0.5, modelul zice că e clasa 1 (pubela)
+      // Dacă scorul e < 0.5, modelul zice că e clasa 0 (altele)
+      
+      bool isBin = score > 0.85; // Ajustează pragul dacă vrei să fii mai strict (ex: > 0.8)
 
       setState(() {
         isBusy = false;
         hasAnalyzed = true;
-
-      
-        if (detectedLabel == "pubela" && maxScore > 0.70) {
+        
+        if (isBin) {
           isValidBin = true;
+          // Putem afișa și încrederea pentru debugging
+          print("Este pubelă! (Încredere: ${(score * 100).toStringAsFixed(1)}%)");
         } else {
           isValidBin = false;
+          if (score > 0.5) {
+            print("Probabil e pubelă, dar nu suntem siguri. (Încredere: ${(score * 100).toStringAsFixed(1)}%)");
+          } else {
+            print("Nu e pubelă. (Încredere: ${(score * 100).toStringAsFixed(1)}%)");
+          }
         }
       });
 
     } catch (e) {
       setState(() => isBusy = false);
+      print("Eroare validare: $e");
     }
   }
 
