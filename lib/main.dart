@@ -3,6 +3,7 @@ import 'home_page.dart';
 import 'scan_page.dart';
 import 'result_page.dart';
 import 'map_page.dart';
+import 'splash_page.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -26,9 +27,11 @@ class TrashSelectorApp extends StatelessWidget {
       title: 'Trash Selector',
       theme: ThemeData(
         primarySwatch: Colors.green,
+        useMaterial3: true,
       ),
-      initialRoute: '/',
+      initialRoute: '/splash',
       routes: {
+        '/splash': (context) => const SplashPage(),
         '/': (context) => HomePage(),
         '/scan': (context) => ScanPage(),
         '/result': (context) => ResultPage(),

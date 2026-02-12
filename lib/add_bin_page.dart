@@ -13,45 +13,54 @@ class AddBinPage extends StatefulWidget {
 }
 
 class _AddBinPageState extends State<AddBinPage> {
+  // Componente TFLite
   Interpreter? interpreter;
   List<String> labels = [];
+  
+  // Gestionare resurse imagine
   String? imagePath;
   bool isBusy = false;
 
-  // Starea Validării
-  bool isValidBin = false;     // A trecut testul AI?
-  bool hasAnalyzed = false;    // S-a terminat analiza?
-  String selectedType = 'plastic'; // Tipul selectat de utilizator (default)
+  // Variabile de stare pentru procesul de clasificare
+  bool isValidBin = false;     // Flag pentru rezultatul validării AI
+  bool hasAnalyzed = false;    // Indică finalizarea procesului de inferență
+  String selectedType = 'plastic'; // Tipul de deșeu implicit
 
-  // Lista de tipuri pentru Dropdown (trebuie să coincidă cu ce ai în MapPage)
+  // Lista categoriilor de reciclare disponibile (sincronizată cu baza de date)
   final List<String> binTypes = ['plastic', 'paper', 'glass', 'metal', 'batteries'];
 
-  // Configurare Model
-  static const int inputSize = 224; // Teachable Machine standard
+  // Configurare parametri model neural
+  // Dimensiunea 224x224 este standard pentru arhitecturile de tip MobileNet
+  static const int inputSize = 224; 
 
   @override
   void initState() {
     super.initState();
     _initModel();
+    // Declanșarea automată a camerei la inițializarea paginii
     WidgetsBinding.instance.addPostFrameCallback((_) {
       pickImage();
     });
   }
 
+  /// Inițializează interpretorul TFLite și încarcă etichetele claselor.
   Future<void> _initModel() async {
     try {
       interpreter = await Interpreter.fromAsset('assets/model/bin_model.tflite');
       final rawLabels = await rootBundle.loadString('assets/model/bin_labels.txt');
       labels = rawLabels.split('\n').where((e) => e.trim().isNotEmpty).toList();
     } catch (e) {
-      debugPrint("Eroare model: $e");
+      debugPrint("Eroare la inițializarea modelului: $e");
     }
   }
 
+  /// Gestionează captura imaginii folosind camera dispozitivului.
   Future<void> pickImage() async {
     final picker = ImagePicker();
+    // Limităm rezoluția pentru optimizarea performanței
     final XFile? file = await picker.pickImage(source: ImageSource.camera, maxWidth: 800);
 
+    // Gestionare navigare înapoi în caz de anulare
     if (file == null && imagePath == null) {
       if (mounted) Navigator.pop(context);
     }
@@ -64,49 +73,52 @@ class _AddBinPageState extends State<AddBinPage> {
         isValidBin = false;
       });
       
+      // Mică latență pentru actualizarea UI-ului înainte de procesare intensivă
       await Future.delayed(const Duration(milliseconds: 200));
       await validateBin(File(file.path));
     }
   }
 
+  /// Procesează imaginea și execută inferența pe modelul neural.
   Future<void> validateBin(File imageFile) async {
     if (interpreter == null) {
-      print("Interpreter is null");
+      debugPrint("Eroare: Interpretorul nu este inițializat.");
       return;
     }
 
     try {
+      // 1. Preprocesare Imagine
       final bytes = await imageFile.readAsBytes();
       img.Image? originalImage = img.decodeImage(bytes);
       if (originalImage == null) return;
 
-      // 1. Orientare și redimensionare
+      // Corecție orientare EXIF și redimensionare la input-ul modelului
       img.Image image = img.bakeOrientation(originalImage);
       img.Image resized = img.copyResize(image, width: inputSize, height: inputSize);
 
-      // 2. Normalizare (0.0 - 1.0) exact ca în Python (rescale=1./255)
+      // 2. Normalizare Pixelilor
+      // Conversie RGB la intervalul [0, 1] pentru tensorul de intrare
       var input = List.generate(1, (batch) => List.generate(inputSize, (y) => List.generate(inputSize, (x) {
         final p = resized.getPixel(x, y);
         return [p.r / 255.0, p.g / 255.0, p.b / 255.0];
       })));
 
-      // --- MODIFICARE AICI ---
-      // Modelul binar are output [1, 1] (un singur scor)
+      // 3. Alocare Tensor Output
+      // Modelul binar returnează o matrice [1, 1] reprezentând probabilitatea clasei pozitive
       var output = List.filled(1 * 1, 0.0).reshape([1, 1]);
 
-      // 3. Rulăm modelul
+      // 4. Execuție Inferență
       interpreter!.run(input, output);
 
-      // 4. Citim scorul (o singură valoare între 0 și 1)
+      // 5. Interpretare Rezultate
+      // Extragem scorul de încredere (probability score)
       double score = output[0][0];
       
-      print("Scor AI: $score"); 
+      debugPrint("Scor inferență: $score"); 
 
-      // 5. Interpretare (Bazat pe ordinea alfabetică: 0=altele, 1=pubela)
-      // Dacă scorul e > 0.5, modelul zice că e clasa 1 (pubela)
-      // Dacă scorul e < 0.5, modelul zice că e clasa 0 (altele)
-      
-      bool isBin = score > 0.85; // Ajustează pragul dacă vrei să fii mai strict (ex: > 0.8)
+      // Logica de decizie bazată pe pragul de încredere (Confidence Threshold)
+      // Pragul de 0.70 asigură un echilibru între precizie și recall
+      bool isBin = score > 0.70; 
 
       setState(() {
         isBusy = false;
@@ -114,21 +126,16 @@ class _AddBinPageState extends State<AddBinPage> {
         
         if (isBin) {
           isValidBin = true;
-          // Putem afișa și încrederea pentru debugging
-          print("Este pubelă! (Încredere: ${(score * 100).toStringAsFixed(1)}%)");
+          debugPrint("Validare reușită. Clasa: Pubelă. Încredere: ${(score * 100).toStringAsFixed(1)}%");
         } else {
           isValidBin = false;
-          if (score > 0.5) {
-            print("Probabil e pubelă, dar nu suntem siguri. (Încredere: ${(score * 100).toStringAsFixed(1)}%)");
-          } else {
-            print("Nu e pubelă. (Încredere: ${(score * 100).toStringAsFixed(1)}%)");
-          }
+          debugPrint("Validare respinsă. Scor insuficient sau clasă negativă: ${(score * 100).toStringAsFixed(1)}%");
         }
       });
 
     } catch (e) {
       setState(() => isBusy = false);
-      print("Eroare validare: $e");
+      debugPrint("Eroare critică în timpul validării: $e");
     }
   }
 
@@ -139,7 +146,7 @@ class _AddBinPageState extends State<AddBinPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Zona Imagine
+            // Secțiune Previzualizare Imagine
             Container(
               height: 300,
               width: double.infinity,
@@ -151,12 +158,13 @@ class _AddBinPageState extends State<AddBinPage> {
             
             const SizedBox(height: 20),
 
+            // Gestionare Stări UI (Loading / Success / Error)
             if (isBusy)
               const Column(
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 15),
-                  Text("AI-ul analizează imaginea..."),
+                  Text("Se analizează imaginea..."),
                 ],
               )
             
@@ -171,7 +179,7 @@ class _AddBinPageState extends State<AddBinPage> {
     );
   }
 
- // Formularul de succes când e pubelă
+ // Widget pentru formularul de colectare date (cazul valid)
   Widget _buildSuccessForm() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -191,7 +199,7 @@ class _AddBinPageState extends State<AddBinPage> {
                 SizedBox(width: 15),
                 Expanded(
                   child: Text(
-                    "Poză Validată!\nAI-ul confirmă că este un punct de reciclare.",
+                    "Imagine Validată.\nSistemul a identificat un punct de colectare.",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -200,10 +208,10 @@ class _AddBinPageState extends State<AddBinPage> {
           ),
           
           const SizedBox(height: 30),
-          const Text("Ce tip de deșeu se colectează?", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text("Tipul de deșeu colectat:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           
-          // Dropdown pentru selecție tip
+          // Selector tip deșeu
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             decoration: BoxDecoration(
@@ -241,7 +249,7 @@ class _AddBinPageState extends State<AddBinPage> {
 
           const SizedBox(height: 40),
 
-          // Buton Confirmare Finală
+          // Buton Confirmare - Returnare date către harta principală
           SizedBox(
             width: double.infinity,
             height: 55,
@@ -251,13 +259,12 @@ class _AddBinPageState extends State<AddBinPage> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () {
-                // Trimitem datele înapoi la MapPage
                 Navigator.pop(context, {
-                  'type': selectedType, // Tipul ales de user
-                  'verified': true      // Validarea AI
+                  'type': selectedType,
+                  'verified': true
                 });
               },
-              child: const Text("ADAUGĂ PE HARTĂ", style: TextStyle(color: Colors.white, fontSize: 18)),
+              child: const Text("SALVARE PUNCT", style: TextStyle(color: Colors.white, fontSize: 18)),
             ),
           ),
         ],
@@ -265,7 +272,7 @@ class _AddBinPageState extends State<AddBinPage> {
     );
   }
 
-  // Mesajul de eroare dacă nu e pubelă
+  // Widget pentru afișarea erorilor de validare
   Widget _buildFailureMessage() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -274,20 +281,20 @@ class _AddBinPageState extends State<AddBinPage> {
           const Icon(Icons.error_outline, color: Colors.red, size: 60),
           const SizedBox(height: 10),
           const Text(
-            "Nu putem valida această poză.",
+            "Validare Eșuată",
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
           ),
           const SizedBox(height: 10),
           const Text(
-            "AI-ul nu a detectat o pubelă de reciclare clară.\nTe rugăm să te asiguri că fotografiezi containerul, nu peisajul.",
+            "Algoritmul nu a detectat cu suficientă certitudine un punct de colectare valid.\nAsigurați-vă că subiectul este încadrat corect.",
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16),
           ),
           const SizedBox(height: 30),
           TextButton.icon(
-            onPressed: pickImage, // Redeschide camera
+            onPressed: pickImage, // Reinițializare proces captură
             icon: const Icon(Icons.refresh, size: 30),
-            label: const Text("Încearcă din nou", style: TextStyle(fontSize: 18)),
+            label: const Text("Reîncercare", style: TextStyle(fontSize: 18)),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
           )
         ],
@@ -295,7 +302,7 @@ class _AddBinPageState extends State<AddBinPage> {
     );
   }
 
-  // Helper Vizual
+  // Metode utilitare pentru generarea elementelor grafice
   IconData _getIconForType(String type) {
     switch (type) {
       case 'plastic': return Icons.local_drink;
