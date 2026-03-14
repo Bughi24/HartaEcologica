@@ -6,7 +6,7 @@ model = tf.keras.models.load_model('garbage_model_augmentation.h5')
 # 2. Inițializează convertorul
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 
-# (Opțional) Optimizare pentru mobil - reduce dimensiunea fără să piardă multă acuratețe
+# ,Optimizare pentru mobil - reduce dimensiunea fără să piardă multă acuratețe
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 
 # 3. Convertește

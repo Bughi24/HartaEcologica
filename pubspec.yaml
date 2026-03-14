@@ -47,6 +47,7 @@ dependencies:
   image: ^4.1.17
   firebase_core: ^4.4.0
   cloud_firestore: ^6.1.2
+  firebase_messaging: ^16.1.2
   
 
 

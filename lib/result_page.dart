@@ -6,7 +6,7 @@ class ResultPage extends StatelessWidget {
   Map<String, dynamic> getWasteInfo(String category) {
     String clean = category.trim().toLowerCase();
 
-    // --- BIOLOGIC / BIODEGRADABIL (NOU ADĂUGAT) ---
+    // --- BIOLOGIC / BIODEGRADABIL---
     // Prinde cuvinte ca: organic, food, vegetable, fruit, compost
     if (clean.contains('organic') || 
         clean.contains('food') || 
@@ -82,7 +82,7 @@ class ResultPage extends StatelessWidget {
     if (clean.contains('metal') || clean.contains('can') || clean.contains('tin') || clean.contains('aluminum')) {
       return {
         'title': 'METAL',
-        'color': const Color(0xFFFFB300), // Galben-Portocaliu
+        'color': const Color(0xFFFFB300), 
         'icon': Icons.settings_rounded,
         'advice': 'Doze de aluminiu, conserve.\nTrebuie să fie golite de conținut și clătite.',
         'bin': 'PUBELA GALBENĂ'
@@ -150,8 +150,8 @@ class ResultPage extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              mainColor.withOpacity(0.2), // Sus: culoare deschisă
-              Colors.white,               // Jos: alb
+              mainColor.withOpacity(0.2), 
+              Colors.white,               
             ],
           ),
         ),
@@ -184,14 +184,14 @@ class ResultPage extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // --- CONȚINUT PRINCIPAL ---
+              // CONȚINUT PRINCIPAL
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
-                      // --- ICONIȚA ---
+                      // ICONIȚA 
                       Container(
                         padding: const EdgeInsets.all(35),
                         decoration: BoxDecoration(
@@ -227,7 +227,7 @@ class ResultPage extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 10),
-                      // --- PUBELA RECOMANDATĂ ---
+                      // PUBELA RECOMANDATĂ
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         decoration: BoxDecoration(
@@ -259,7 +259,7 @@ class ResultPage extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 40),
-                      // --- SECȚIUNEA DE SFATURI ---
+                      // SECȚIUNEA DE SFATURI
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(25),
@@ -313,7 +313,7 @@ class ResultPage extends StatelessWidget {
                 ),
               ),
 
-              // --- BUTONUL DE JOS ---
+              // BUTONUL DE JOS 
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: SizedBox(

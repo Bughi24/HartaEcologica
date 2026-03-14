@@ -21,9 +21,9 @@ class _ScanPageState extends State<ScanPage> {
   String? imagePath;
   bool isInferencing = false; // Indicator de stare pentru procesare
 
-  // Configurare Tensor de Intrare
-  // Dimensiunea 150x150 px conform arhitecturii rețelei convoluționale antrenate
-  static const int inputSize = 150; 
+  // MODIFICAREA 1: Configurare Tensor de Intrare
+  // Am schimbat din 150 în 224, conform arhitecturii MobileNetV2 din Python!
+  static const int inputSize = 224; 
 
   @override
   void initState() {
@@ -34,16 +34,18 @@ class _ScanPageState extends State<ScanPage> {
   /// Inițializează asincron modelul TFLite și încarcă etichetele asociate.
   Future<void> _initModel() async {
     try {
-      // Încărcarea fișierului binar al modelului optimizat (.tflite)
+      // MODIFICAREA 2: Încărcarea noului fișier binar al modelului MobileNetV2
+      // Asigură-te că pui noul model .tflite în folderul assets/model/
       interpreter = await Interpreter.fromAsset(
-        'assets/model/garbage_classification_model_v2.tflite',
+        'assets/model/model_augmentation.tflite', 
       );
 
       // Încărcarea și parsarea fișierului de etichete (clase)
+      // Asigură-te că acest fișier are acum cele 4 clase (ex: hartie, metal, plastic, sticla)
       final rawLabels = await rootBundle.loadString('assets/model/labels.txt');
       labels = rawLabels.split('\n').where((e) => e.trim().isNotEmpty).toList();
       
-      debugPrint("Model neural inițializat. Număr clase: ${labels.length}");
+      debugPrint("Model neural MobileNetV2 inițializat. Număr clase: ${labels.length}");
     } catch (e) {
       debugPrint("Eroare critică la încărcarea modelului: $e");
     }
@@ -75,10 +77,8 @@ class _ScanPageState extends State<ScanPage> {
     await classify(File(file.path));
   }
 
-  // --- IMPLEMENTARE TEST TIME AUGMENTATION (TTA) ---
-  /// Execută clasificarea imaginii folosind o strategie de tip Ensemble.
-  /// Imaginea este procesată în multiple variante (original, rotit, oglindit),
-  /// iar rezultatele sunt mediate pentru a crește robustețea predicției.
+
+  // Execută clasificarea imaginii folosind o strategie de tip Ensemble (TTA).
   Future<void> classify(File imageFile) async {
     if (interpreter == null) {
       debugPrint("Eroare: Interpretor neinițializat.");
@@ -87,7 +87,7 @@ class _ScanPageState extends State<ScanPage> {
     }
 
     try {
-      // 1. Decodare imagine în memorie
+      //Decodare imagine în memorie
       final bytes = await imageFile.readAsBytes();
       img.Image? originalImage = img.decodeImage(bytes);
 
@@ -99,20 +99,18 @@ class _ScanPageState extends State<ScanPage> {
       // Vector de acumulare pentru scorurile de probabilitate
       List<double> totalScores = List.filled(labels.length, 0.0);
 
-      // --- PASUL 1: Inferență pe imaginea originală ---
+      // Inferență pe imaginea originală ---
       await _runInference(baseImage, totalScores);
 
-      // --- PASUL 2: Augmentare Geometrică - Rotație 90° ---
-      // Reduce sensibilitatea modelului la orientarea obiectului
+      // Augmentare Geometrică - Rotație 90°
       img.Image rotated = img.copyRotate(baseImage, angle: 90);
       await _runInference(rotated, totalScores);
 
-      // --- PASUL 3: Augmentare Geometrică - Oglindire (Flip) ---
-      // Asigură invarianța la simetrie
+      // Augmentare Geometrică - Oglindire (Flip)
       img.Image flipped = img.copyFlip(baseImage, direction: img.FlipDirection.horizontal);
       await _runInference(flipped, totalScores);
 
-      // --- AGREGARE REZULTATE (Ensemble Averaging) ---
+      // AGREGARE REZULTATE (Ensemble Averaging) 
       double maxScore = -1;
       int maxIdx = -1;
 
@@ -131,7 +129,6 @@ class _ScanPageState extends State<ScanPage> {
       debugPrint("Rezultat agregat TTA: $detectedLabel (Încredere: ${(maxScore * 100).toStringAsFixed(1)}%)");
 
       // Aplicare prag de siguranță (Confidence Threshold)
-      // Dacă modelul nu este sigur nici după TTA, clasificăm ca deșeu generic
       if (maxScore < 0.55) {
         debugPrint("Scor sub pragul minim de încredere.");
         detectedLabel = 'trash'; 
@@ -150,13 +147,12 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
-  /// Execută o singură pasă de inferență pe un tensor de imagine dat.
-  /// Rezultatele sunt adăugate în vectorul acumulator.
+  // Execută o singură pasă de inferență pe un tensor de imagine dat.
   Future<void> _runInference(img.Image imgToAnalyze, List<double> accumulator) async {
-    // Preprocesare: Redimensionare la 150x150 (Center Crop)
+    // Preprocesare: Redimensionare la 224x224 (Center Crop) - setat sus
     img.Image resized = img.copyResizeCropSquare(imgToAnalyze, size: inputSize);
 
-    // Normalizare: Conversie RGB [0, 255] -> Float [0.0, 1.0]
+    // Normalizare: Conversie RGB [0, 255] -> Float [0.0, 1.0] (Identic cu rescale=1./255)
     var input = List.generate(
       1,
       (batch) => List.generate(
@@ -190,7 +186,7 @@ class _ScanPageState extends State<ScanPage> {
 
   @override
   void dispose() {
-    interpreter?.close(); // Eliberare resurse native TFLite
+    interpreter?.close(); 
     super.dispose();
   }
 

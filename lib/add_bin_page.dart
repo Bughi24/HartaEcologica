@@ -24,7 +24,7 @@ class _AddBinPageState extends State<AddBinPage> {
   // Variabile de stare pentru procesul de clasificare
   bool isValidBin = false;     // Flag pentru rezultatul validării AI
   bool hasAnalyzed = false;    // Indică finalizarea procesului de inferență
-  String selectedType = 'plastic'; // Tipul de deșeu implicit
+  Set<String> selectedTypes = {'plastic'}; // Tipul de deșeu implicit
 
   // Lista categoriilor de reciclare disponibile (sincronizată cu baza de date)
   final List<String> binTypes = ['plastic', 'paper', 'glass', 'metal', 'batteries'];
@@ -79,7 +79,6 @@ class _AddBinPageState extends State<AddBinPage> {
     }
   }
 
-  /// Procesează imaginea și execută inferența pe modelul neural.
   Future<void> validateBin(File imageFile) async {
     if (interpreter == null) {
       debugPrint("Eroare: Interpretorul nu este inițializat.");
@@ -87,38 +86,43 @@ class _AddBinPageState extends State<AddBinPage> {
     }
 
     try {
-      // 1. Preprocesare Imagine
       final bytes = await imageFile.readAsBytes();
       img.Image? originalImage = img.decodeImage(bytes);
       if (originalImage == null) return;
 
-      // Corecție orientare EXIF și redimensionare la input-ul modelului
       img.Image image = img.bakeOrientation(originalImage);
-      img.Image resized = img.copyResize(image, width: inputSize, height: inputSize);
+      
+      // 1. OPTIMIZARE: Folosim decupaj pătrat central (Center Crop)
+      // Acest lucru forțează utilizatorul să pună pubela în centrul camerei
+      // și elimină marginile (clădiri, peisaje) care derutează modelul.
+      int cropSize = image.width > image.height ? image.height : image.width;
+      img.Image cropped = img.copyCrop(
+        image, 
+        x: (image.width - cropSize) ~/ 2, 
+        y: (image.height - cropSize) ~/ 2, 
+        width: cropSize, 
+        height: cropSize
+      );
 
-      // 2. Normalizare Pixelilor
-      // Conversie RGB la intervalul [0, 1] pentru tensorul de intrare
+      // Redimensionăm la 224 doar bucata centrală
+      img.Image resized = img.copyResize(cropped, width: inputSize, height: inputSize);
+
       var input = List.generate(1, (batch) => List.generate(inputSize, (y) => List.generate(inputSize, (x) {
         final p = resized.getPixel(x, y);
         return [p.r / 255.0, p.g / 255.0, p.b / 255.0];
       })));
 
-      // 3. Alocare Tensor Output
-      // Modelul binar returnează o matrice [1, 1] reprezentând probabilitatea clasei pozitive
       var output = List.filled(1 * 1, 0.0).reshape([1, 1]);
 
-      // 4. Execuție Inferență
       interpreter!.run(input, output);
-
-      // 5. Interpretare Rezultate
-      // Extragem scorul de încredere (probability score)
       double score = output[0][0];
       
       debugPrint("Scor inferență: $score"); 
 
-      // Logica de decizie bazată pe pragul de încredere (Confidence Threshold)
-      // Pragul de 0.70 asigură un echilibru între precizie și recall
-      bool isBin = score > 0.70; 
+      // 2. OPTIMIZARE: Creșterea pragului de selecție
+      // Un model binar are nevoie de un prag mult mai mare pentru a elimina
+      // fals pozitivele din mediul urban (mall-uri, mașini).
+      bool isBin = score > 0.90; // <-- Schimbat de la 0.70 la 0.90
 
       setState(() {
         isBusy = false;
@@ -138,36 +142,91 @@ class _AddBinPageState extends State<AddBinPage> {
       debugPrint("Eroare critică în timpul validării: $e");
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Validare Punct"), backgroundColor: Colors.green),
-      body: SingleChildScrollView(
+     body: SingleChildScrollView(
         child: Column(
           children: [
-            // Secțiune Previzualizare Imagine
+            // 1. UI MODERN: Previzualizarea imaginii (Rounded Corners + Shadow)
             Container(
-              height: 300,
+              margin: const EdgeInsets.all(20),
+              height: 320,
               width: double.infinity,
-              color: Colors.black,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade900,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 15,
+                    offset: Offset(0, 8),
+                  )
+                ],
+                // Imaginea se mulează pe marginile rotunjite ale containerului
+                image: imagePath != null
+                    ? DecorationImage(
+                        image: FileImage(File(imagePath!)),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
               child: imagePath == null
-                  ? const Center(child: Icon(Icons.camera_alt, color: Colors.white))
-                  : Image.file(File(imagePath!), fit: BoxFit.cover),
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt_rounded, color: Colors.white.withOpacity(0.5), size: 60),
+                        const SizedBox(height: 10),
+                        Text("Așteptare cameră...", style: TextStyle(color: Colors.white.withOpacity(0.7))),
+                      ],
+                    )
+                  : null,
             ),
             
-            const SizedBox(height: 20),
-
-            // Gestionare Stări UI (Loading / Success / Error)
+            // 2. UI MODERN: Starea de încărcare a Inteligenței Artificiale
             if (isBusy)
-              const Column(
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 15),
-                  Text("Se analizează imaginea..."),
-                ],
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.green.shade100, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.1),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(
+                      height: 50,
+                      width: 50,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    const Text(
+                      "Rețeaua Neurală procesează...",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Se aplică filtrele de convoluție și se caută tiparele de clasificare pentru deșeuri.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.4),
+                    ),
+                  ],
+                ),
               )
             
+            // Formularul de succes sau eroare (Rămân exact cum le-ai făcut tu!)
             else if (hasAnalyzed && isValidBin)
               _buildSuccessForm()
 
@@ -179,7 +238,7 @@ class _AddBinPageState extends State<AddBinPage> {
     );
   }
 
- // Widget pentru formularul de colectare date (cazul valid)
+  // Widget pentru formularul de colectare date (cazul valid)
   Widget _buildSuccessForm() {
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -208,43 +267,60 @@ class _AddBinPageState extends State<AddBinPage> {
           ),
           
           const SizedBox(height: 30),
-          const Text("Tipul de deșeu colectat:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
+          const Text(
+            "Ce tipuri de deșeuri se pot colecta aici?", 
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            "(Puteți selecta mai multe opțiuni)", 
+            style: TextStyle(fontSize: 14, color: Colors.grey, fontStyle: FontStyle.italic)
+          ),
+          const SizedBox(height: 15),
           
-          // Selector tip deșeu
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: selectedType,
-                isExpanded: true,
-                icon: const Icon(Icons.arrow_drop_down, size: 30),
-                items: binTypes.map((String type) {
-                  return DropdownMenuItem<String>(
-                    value: type,
-                    child: Row(
-                      children: [
-                        Icon(_getIconForType(type), color: _getColorForType(type)),
-                        const SizedBox(width: 15),
-                        Text(
-                          type.toUpperCase(),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                        ),
-                      ],
+          // NOU: Interfață cu selecție multiplă (Filter Chips)
+          Wrap(
+            spacing: 10.0, // Spațiul orizontal dintre butoane
+            runSpacing: 10.0, // Spațiul vertical dintre linii
+            children: binTypes.map((String type) {
+              bool isSelected = selectedTypes.contains(type);
+              
+              return FilterChip(
+                selected: isSelected,
+                showCheckmark: false, // Ascundem bifa standard pentru a folosi iconițele noastre
+                selectedColor: _getColorForType(type).withOpacity(0.8),
+                backgroundColor: Colors.grey.shade200,
+                elevation: isSelected ? 4 : 0,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getIconForType(type), 
+                      color: isSelected ? Colors.white : _getColorForType(type),
+                      size: 20,
                     ),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
+                    const SizedBox(width: 8),
+                    Text(
+                      type.toUpperCase(),
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black87,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+                onSelected: (bool selected) {
                   setState(() {
-                    selectedType = newValue!;
+                    if (selected) {
+                      selectedTypes.add(type);
+                    } else {
+                      selectedTypes.remove(type);
+                    }
                   });
                 },
-              ),
-            ),
+              );
+            }).toList(),
           ),
 
           const SizedBox(height: 40),
@@ -257,10 +333,13 @@ class _AddBinPageState extends State<AddBinPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green.shade700,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                // Dezactivăm butonul dacă nu e nimic selectat
+                disabledBackgroundColor: Colors.grey.shade400,
               ),
-              onPressed: () {
+              // Logica de validare: Permite salvarea DOAR dacă e selectat cel puțin un tip
+              onPressed: selectedTypes.isEmpty ? null : () {
                 Navigator.pop(context, {
-                  'type': selectedType,
+                  'types': selectedTypes.toList(), // Returnăm o LISTĂ de tipuri acum!
                   'verified': true
                 });
               },
@@ -270,7 +349,7 @@ class _AddBinPageState extends State<AddBinPage> {
         ],
       ),
     );
-  }
+  }   
 
   // Widget pentru afișarea erorilor de validare
   Widget _buildFailureMessage() {

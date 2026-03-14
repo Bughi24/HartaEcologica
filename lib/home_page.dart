@@ -21,7 +21,7 @@ class HomePage extends StatelessWidget {
             children: [
               SizedBox(height: 40),
               Text(
-                'Trash Selector',
+                'Harta Ecologică',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -37,7 +37,7 @@ class HomePage extends StatelessWidget {
                 ),
               ),
               Text(
-                'Reciclează inteligent cu Trash Selector!',
+                'Sistem de identificare și reciclare a deșeurilor',
                 style: TextStyle(fontSize: 16, color: Colors.white70, fontStyle: FontStyle.italic),
               ),
               SizedBox(height: 40),

@@ -22,18 +22,18 @@ class _MapPageState extends State<MapPage> {
 
   // Structuri de date pentru gestionarea punctelor de interes (POI)
   List<dynamic> _allRecyclingElements = []; // Buffer pentru datele brute preluate din OpenStreetMap
-  List<Map<String, dynamic>> _rawFirebaseData = []; // Buffer pentru documentele brute din Firestore)
+  List<Map<String, dynamic>> _rawFirebaseData = []; // Buffer pentru documentele brute din Firestore
 
   List<Marker> _apiMarkers = [];            // Markere generate din datele statice (API)
   List<Marker> _firebaseMarkers = [];       // Markere dinamice sincronizate în timp real (Cloud)
 
   // Variabile de stare pentru geolocalizare și rutare
-  LatLng? _userLocation; 
-  Set<String> activeFilters = {}; 
-  LatLng? _selectedDestination; 
+  LatLng? _userLocation; // Coordonatele curente ale utilizatorului
+  Set<String> activeFilters = {}; // Set de filtre active pentru tipurile de reciclare
+  LatLng? _selectedDestination; // Coordonatele destinației selectate pentru rutare
   List<LatLng> _routePoints = []; // Coordonatele poliliniei pentru afișarea rutei
   StreamSubscription<Position>? _positionStream; 
-  final MapController _mapController = MapController(); 
+  final MapController _mapController = MapController();  
   String? _formattedDistance; 
   
   // Flag pentru modul de urmărire automată a utilizatorului
@@ -56,10 +56,7 @@ class _MapPageState extends State<MapPage> {
     super.dispose();
   }
 
-  // --- LOGICA DE CODIFICARE VIZUALĂ (Visual Encoding) ---
-  
-  /// Determină culoarea markerului în funcție de tipul deșeului.
-  /// Această asociere semantică îmbunătățește viteza de procesare vizuală a utilizatorului.
+  // Determină culoarea markerului în funcție de tipul deșeului.
   Color _getMarkerColor(String type) {
     switch (type.toLowerCase()) {
       case 'plastic': return Colors.amber.shade700;
@@ -84,7 +81,6 @@ class _MapPageState extends State<MapPage> {
   }
 
   // Generator de widget-uri pentru reprezentarea vizuală a markerelor
-  // Semnătura corectă: Text -> Tip -> Funcție
   Widget _buildUnifiedMarker(String tooltipText, String type, VoidCallback onTap) {
     final Color markerColor = _getMarkerColor(type);
     
@@ -93,11 +89,11 @@ class _MapPageState extends State<MapPage> {
     // Altfel, folosim simbolul standard de recipient.
     final IconData markerIcon = type == 'mixed' ? Icons.recycling : Icons.delete_rounded;
 
-    return GestureDetector(
+    return GestureDetector( 
       onTap: onTap,
-      child: Tooltip(
+      child: Tooltip( 
         message: tooltipText,
-        child: Container(
+        child: Container( 
           decoration: BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
@@ -120,10 +116,7 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // --- LOGICA DE SINCRONIZARE CLOUD (Firebase Firestore) ---
-
-  /// Inițializează un ascultător (listener) pe colecția 'bins' din Firestore.
-  /// Această metodă asigură actualizarea reactivă a interfeței (UI).
+  // Inițializează un ascultător (listener) pe colecția 'bins' din Firestore.
   void _listenToFirebaseBins() {
     FirebaseFirestore.instance
         .collection('bins') // Referință către colecția NoSQL
@@ -133,8 +126,7 @@ class _MapPageState extends State<MapPage> {
         List<Map<String, dynamic>> tempData = [];
         for(var doc in snapshot.docs) {
           final data = doc.data();
-          if(data['lat'] != null && data['lon'] != null)
-          {
+          if(data['lat'] != null && data['lon'] != null) {
             tempData.add(data);
           }
         }
@@ -142,19 +134,19 @@ class _MapPageState extends State<MapPage> {
         if(mounted){
           setState(() {
             _rawFirebaseData = tempData; // Actualizare buffer de date brute
-        });
-        _filterMarkers(); // Reaplicare filtre și regenerare markere{}
-        }});
-      
+          });
+          _filterMarkers(); // Reaplicare filtre și regenerare markere
+        }
+    });
   }
 
-  /// Persistă un nou punct de colectare în infrastructura Cloud.
-  Future<void> _addBinToFirebase(double lat, double lon, String type) async {
+  // Persistă un nou punct de colectare în infrastructura Cloud.
+  Future<void> _addBinToFirebase(double lat, double lon, List<String> types) async {
     try {
       await FirebaseFirestore.instance.collection('bins').add({
         'lat': lat,
         'lon': lon,
-        'type': type,
+        'types': types, // Aici salvăm array-ul complet cu tipuri
         'timestamp': FieldValue.serverTimestamp(), 
       });
     } catch (e) {
@@ -165,7 +157,7 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  /// Gestionează interacțiunea utilizatorului cu un marker.
+  // Gestionează interacțiunea utilizatorului cu un marker.
   void _onMarkerTap(LatLng destination, String description) {
       setState(() {
         _isTrackingUser = false; // Dezactivează centrarea automată
@@ -186,7 +178,7 @@ class _MapPageState extends State<MapPage> {
       _getRouteToDestination();
   }
 
-  // --- Modulul de Validare și Adăugare (Computer Vision Integration) ---
+  // Modulul de Validare și Adăugare
   Future<void> _addNewBin() async {
     if (_userLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -202,24 +194,28 @@ class _MapPageState extends State<MapPage> {
     );
 
     if (result != null && result is Map) {
-      final String type = result['type']; 
+    
+      final List<String> types = List<String>.from(result['types']); 
       
       final double lat = _userLocation!.latitude;
       final double lon = _userLocation!.longitude;
 
       // Declanșarea procedurii de scriere în baza de date
-      await _addBinToFirebase(lat, lon, type);
+      await _addBinToFirebase(lat, lon, types);
+
+      // Afișăm culoarea corectă în SnackBar
+      Color snackColor = types.length > 1 ? Colors.purple.shade600 : _getMarkerColor(types.first);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Punct sincronizat cu succes în rețea!'),
-          backgroundColor: _getMarkerColor(type),
+          content: const Text('Punct sincronizat cu succes în rețea!'),
+          backgroundColor: snackColor,
         ),
       );
     }
   }
 
-  // --- Integrare API OpenStreetMap (Overpass) ---
+  // Integrare API OpenStreetMap (Overpass) 
   Future<void> _fetchRecyclingPoints() async {
     final overpassQuery = '''
     [out:json][timeout:25];
@@ -248,8 +244,8 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // --- Filtrare și Procesare Date ---
-  /// Aplică filtrele active și determină dacă un punct este "Mixt" sau simplu.
+  //  Filtrare și Procesare Date
+  // Aplică filtrele active și determină dacă un punct este "Mixt" sau simplu.
   void _filterMarkers() {
     setState(() {
       _apiMarkers = _allRecyclingElements.map((element) {
@@ -271,19 +267,16 @@ class _MapPageState extends State<MapPage> {
         if (activeFilters.isNotEmpty && activeFilters.intersection(types.toSet()).isEmpty) {
           return null;
         }
-        
 
         String infoText = name;
         String primaryType = 'unknown'; 
         
-        // --- LOGICA DE AGREGARE VIZUALĂ ---
+        // LOGICA DE AGREGARE VIZUALĂ OSM 
         if (types.length > 1) {
-           // Dacă sunt mai multe tipuri, clasificăm punctul ca MIXT (Centru Colectare)
            primaryType = 'mixed';
            String typesRo = types.map((t) => _translateType(t)).join(", ");
            infoText += "\nCentru Colectare: $typesRo";
         } else if (types.isNotEmpty) {
-           // Dacă e un singur tip, îl preluăm pe acela
            primaryType = types.first; 
            String typesRo = _translateType(primaryType);
            infoText += "\nAcceptă: $typesRo";
@@ -295,38 +288,57 @@ class _MapPageState extends State<MapPage> {
           point: LatLng(lat, lon),
           child: _buildUnifiedMarker(
             infoText,
-            primaryType, // Parametrul Tip (poate fi 'mixed' sau specific)
+            primaryType, 
             () {
                _onMarkerTap(LatLng(lat, lon), name);
             }
           ),
         );
       }).whereType<Marker>().toList();
-
+      
+      // Procesare datelor din Firebase și aplicare filtre
       _firebaseMarkers = _rawFirebaseData.map((data){
         final double lat = (data['lat'] as num).toDouble();
         final double lon = (data['lon'] as num).toDouble();
-        final String type = data['type'] ?? 'unknown';
+        
+        // Extragem lista de tipuri din Firebase (compatibil și cu date vechi lipsă)
+        final List<String> types = data['types'] != null 
+            ? List<String>.from(data['types']) 
+            : (data['type'] != null ? [data['type']] : []); // Fallback pentru punctele vechi
 
-        if(activeFilters.isNotEmpty && !activeFilters.contains(type)) {
+        // Logica de intersecție pentru filtrare
+        if (activeFilters.isNotEmpty && activeFilters.intersection(types.toSet()).isEmpty) {
           return null;
         }
 
-        final String typeRo = _translateType(type);
+        String infoText = 'Punct adăugat de utilizatori';
+        String primaryType = 'unknown'; 
+        
+        // LOGICĂ DE AGREGARE FIREBASE
+        if (types.length > 1) {
+           primaryType = 'mixed';
+           String typesRo = types.map((t) => _translateType(t)).join(", ");
+           infoText += "\nCentru Colectare: $typesRo";
+        } else if (types.isNotEmpty) {
+           primaryType = types.first; 
+           String typesRo = _translateType(primaryType);
+           infoText += "\nAcceptă: $typesRo";
+        }
+
         return Marker(
           width: 45.0,
           height: 45.0,
           point: LatLng(lat, lon),
           child: _buildUnifiedMarker(
-            'Punct adăugat de utilizatori\nAcceptă: $typeRo',
-            type,
+            infoText,
+            primaryType,
             () {
               _onMarkerTap(LatLng(lat, lon), 'Punct adăugat de utilizatori');
             }
           ),
-          );
+        );
       }).whereType<Marker>().toList();
-      });
+    });
   }
 
   // --- Serviciu de Rutare (OpenRouteService) ---

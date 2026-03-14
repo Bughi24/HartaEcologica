@@ -47,5 +47,5 @@ early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weig
 
 model.fit(train_data, validation_data=val_data, epochs=20, callbacks=[early_stopping])
 
-model.save('garbage_classification_model_v2_newmodel.h5')
-print("Model training complete and saved as 'garbage_classification_model_v2_newmodel.h5'")
+model.save('garbage_classification_model_v2.h5')
+print("Model training complete and saved as 'garbage_classification_model_v2.h5'")

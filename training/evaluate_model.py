@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the trained model
-model= tf.keras.models.load_model('garbage_classification_model.h5')
+model= tf.keras.models.load_model('garbage_classification_model_sequential_augmented.h5')
 
 img_size = 150
 batch_size = 16

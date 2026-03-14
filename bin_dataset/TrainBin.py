@@ -67,7 +67,7 @@ history = model.fit(
 model.save('model_intermediar.keras')
 print("Model salvat ca 'model_intermediar.keras'. Acum îl putem testa!")
 
-# 5. GENERARE GRAFICE (Să vezi cât de bine a învățat)
+# 5. GENERARE GRAFICE DE ANTRENARE
 acc = history.history['accuracy']
 val_acc = history.history['val_accuracy']
 loss = history.history['loss']

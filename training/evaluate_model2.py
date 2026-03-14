@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the trained model
-model= tf.keras.models.load_model('garbage_model_augmentation.h5')
+model= tf.keras.models.load_model('garbage_classification_model_v2.h5')
 
-img_size = 224
-batch_size = 32
+img_size = 150
+batch_size = 16
 
 datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
@@ -20,7 +20,8 @@ val_data = datagen.flow_from_directory(
     batch_size=batch_size,
     class_mode='categorical',
     subset='validation',
-    shuffle=False
+    shuffle=False,
+    seed = 42
 )
 
 # Evaluate the model on validation data
