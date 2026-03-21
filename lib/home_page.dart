@@ -2,108 +2,193 @@ import 'package:flutter/material.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
-// Pagina principală cu opțiunile de navigare
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Fundal cu gradient
-      body: Container( 
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      body: Stack(
+        children: [
+          // 1. FUNDAL MODERN (Natură / Prospețime)
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFE8F5E9), Color(0xFFA5D6A7), Color(0xFF4CAF50)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
           ),
-        ),
-        // Conținutul paginii
-        child: SafeArea(
-          child: Column(
-            children: [
-              SizedBox(height: 40),
-              Text(
-                'Harta Ecologică',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 1.3,
-                  shadows: [
-                    Shadow(
-                      offset: Offset(2, 2),
-                      blurRadius: 3,
-                      color: Colors.black26,
-                    ),
-                  ],
-                ),
+          
+          // 2. ELEMENTE DE DESIGN (Cercuri decorative)
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.2),
               ),
-              Text(
-                'Sistem de identificare și reciclare a deșeurilor',
-                style: TextStyle(fontSize: 16, color: Colors.white70, fontStyle: FontStyle.italic),
-              ),
-              SizedBox(height: 40),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  children: [
-                    buildOptionCard(
-                      context,
-                      icon: Icons.camera_alt,
-                      iconColor: Colors.lightGreenAccent,
-                      title: 'Scanează un deșeu',
-                      route: '/scan',
-                    ),
-                    SizedBox(height: 30),
-                    buildOptionCard(
-                      context,
-                      icon: Icons.map,
-                      iconColor: Colors.cyanAccent,
-                      title: 'Vezi harta reciclării',
-                      route: '/map',
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            top: 150,
+            left: -80,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.15),
+              ),
+            ),
+          ),
+
+          // 3. CONȚINUTUL PRINCIPAL
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 50),
+                  
+                  // Salut și Titlu
+                  const Text(
+                    'Salutare! 👋',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Harta Ecologică',
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1B5E20), // Verde închis
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Află cum și unde să reciclezi folosind\nInteligența Artificială.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.green.shade900.withOpacity(0.7),
+                      height: 1.4,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 50),
+
+                  // CARDS (Butoanele de navigare)
+                  Expanded(
+                    child: ListView(
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        _buildGlassCard(
+                          context: context,
+                          title: 'Scanează Deșeu',
+                          subtitle: 'AI-ul îți spune cum să-l reciclezi',
+                          icon: Icons.document_scanner_rounded,
+                          color: const Color(0xFF2E7D32),
+                          route: '/scan',
+                        ),
+                        const SizedBox(height: 20),
+                        _buildGlassCard(
+                          context: context,
+                          title: 'Harta Reciclării',
+                          subtitle: 'Găsește pubele în apropierea ta',
+                          icon: Icons.map_rounded,
+                          color: const Color(0xFF1565C0), // Albastru
+                          route: '/map',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-  // Card pentru opțiuni pe Home Page
-  Widget buildOptionCard(BuildContext context,
-      {required IconData icon, required Color iconColor, required String title, required String route}) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
+
+  // WIDGET PERSONALIZAT: Card modern stil "Glassmorphism"
+  Widget _buildGlassCard({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required String route,
+  }) {
+    return GestureDetector(
       onTap: () => Navigator.pushNamed(context, route),
-      child: AnimatedContainer(
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+      child: Container(
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white.withOpacity(0.85), // Efect translucid
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black45,
-              offset: Offset(0, 4),
-              blurRadius: 8,
+              color: color.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
-          border: Border.all(color: Colors.white12, width: 1.5),
-        ),
-        padding: const EdgeInsets.symmetric(vertical:22, horizontal: 20),
-          child: Row(
-            children: [
-              Icon(icon, color: iconColor, size: 36),
-              SizedBox(width: 20),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.w600),
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 18),
-            ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.5),
+            width: 2,
           ),
+        ),
+        child: Row(
+          children: [
+            // Iconița cu fundal colorat
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: color, size: 32),
+            ),
+            const SizedBox(width: 20),
+            
+            // Textul cardului
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Săgeata
+            Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade400, size: 18),
+          ],
+        ),
       ),
     );
   }

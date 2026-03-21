@@ -157,7 +157,7 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // Gestionează interacțiunea utilizatorului cu un marker.
+  // --- NOU: Gestionează interacțiunea utilizatorului cu un marker și deschide Bottom Sheet-ul ---
   void _onMarkerTap(LatLng destination, String description) {
       setState(() {
         _isTrackingUser = false; // Dezactivează centrarea automată
@@ -172,10 +172,121 @@ class _MapPageState extends State<MapPage> {
                 ? '${(dist/1000).toStringAsFixed(2)} km' 
                 : '${dist.toStringAsFixed(0)} m';
         } else {
-             _formattedDistance = description;
+             _formattedDistance = "Distanță necunoscută";
         }
       });
+      
+      // 1. Calculăm traseul (linia de pe hartă)
       _getRouteToDestination();
+
+      // 2. Afișăm panoul modern din partea de jos (Bottom Sheet)
+      _showRouteDetailsSheet(description);
+  }
+
+  // --- NOU: UI MODERN - Meniul glisant de jos (Bottom Sheet) ---
+  void _showRouteDetailsSheet(String title) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent, // Lăsăm transparent pentru a face propriul design cu colțuri rotunjite
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.only(top: 15, left: 24, right: 24, bottom: 40),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Linia gri mică de sus (Drag handle)
+              Center(
+                child: Container(
+                  width: 50,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 25),
+              
+              // Titlul pubelei (Descrierea completă din Firebase/OSM)
+              Text(
+                title,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.3),
+              ),
+              const SizedBox(height: 25),
+
+              // Detalii traseu (Card Verde)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.green.shade200, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ]
+                      ),
+                      child: const Icon(Icons.directions_walk_rounded, color: Colors.green, size: 32),
+                    ),
+                    const SizedBox(width: 20),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Traseu Pietonal", style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 5),
+                        Text(
+                          _formattedDistance ?? "Calculare...",
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green.shade700),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              // Buton de acțiune
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  icon: const Icon(Icons.check_circle_outline, size: 24),
+                  label: const Text("Am înțeles", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  onPressed: () => Navigator.pop(context), // Închide panoul
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ).whenComplete(() {
+    });
   }
 
   // Modulul de Validare și Adăugare
@@ -398,7 +509,7 @@ class _MapPageState extends State<MapPage> {
         child: Row(
           children: categories.map((category) {
             final isSelected = activeFilters.contains(category);
-            final typeColor = _getMarkerColor(category); // Culoare dinamică
+            final typeColor = _getMarkerColor(category); 
 
             return Padding(
               padding: const EdgeInsets.only(right: 10.0),
@@ -548,37 +659,7 @@ class _MapPageState extends State<MapPage> {
             ],
           ),
           
-          if (_selectedDestination != null && _formattedDistance != null)
-            Positioned(
-              bottom: 90,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.directions_walk, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Distanța: $_formattedDistance',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)
-                    ),
-                  ],
-                ),
-              ),
-            ),
+         
           
           Positioned(
             bottom: 20,
