@@ -1,36 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // <-- NOU 1: Importul pentru FCM
-import 'firebase_options.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+import 'firebase_options.dart';
+import 'services/notification_service.dart';
+import 'login_page.dart';
 import 'home_page.dart';
 import 'scan_page.dart';
 import 'result_page.dart';
 import 'map_page.dart';
 import 'splash_page.dart';
+import 'profile_page.dart';
+import 'history_page.dart';
+import 'leaderboard_page.dart';
 
-// <-- NOU 2: Funcția de fundal (Trebuie să fie mereu sus, în afara claselor)
-// Aici procesăm notificările primite când aplicația este complet închisă
+// Handler pentru notificările primite când aplicația este închisă (Background)
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Asigură-te că Firebase este inițializat pentru procesul de fundal
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint("Notificare de fundal primită: ${message.messageId}");
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  
+  // Inițializare baze de date locale și Cloud
+  await Hive.initFlutter();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // <-- NOU 3: Înregistrăm funcția de fundal înainte să pornim aplicația
+  // Inițializare servicii notificări
+  await NotificationService.initialize();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
+  
   runApp(const TrashSelectorApp());
 }
 
-// <-- NOU 4: Am transformat TrashSelectorApp în StatefulWidget
 class TrashSelectorApp extends StatefulWidget {
   const TrashSelectorApp({super.key});
 
@@ -39,47 +46,50 @@ class TrashSelectorApp extends StatefulWidget {
 }
 
 class _TrashSelectorAppState extends State<TrashSelectorApp> {
-  // <-- NOU 5: Creăm o cheie globală pentru a putea afișa SnackBar-uri oriunde
-  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  
+  // Variabilă pentru a preveni dublarea notificărilor
+  String? _lastMessageId;
 
   @override
   void initState() {
     super.initState();
-    // Pornim configurarea notificărilor imediat ce se deschide aplicația
     _setupPushNotifications();
   }
 
-  // --- LOGICA PENTRU NOTIFICĂRI ---
   Future<void> _setupPushNotifications() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-    // 1. Cerem permisiunea utilizatorului (obligatoriu pe Android 13+ și iOS)
-    NotificationSettings settings = await messaging.requestPermission(
+    // Cerem permisiunea pentru notificări (iOS/Android 13+)
+    await messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('Utilizatorul a permis notificările!');
-    } else {
-      debugPrint('Utilizatorul a refuzat notificările.');
-    }
+    // Ascultăm notificările primite în timp ce aplicația este deschisă (Foreground)
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      // --- REZOLVARE NOTIFICĂRI MULTIPLE ---
+      if (message.messageId == _lastMessageId) return; 
+      _lastMessageId = message.messageId;
 
-    // 2. Ascultăm notificările care vin MENTRE aplicația este pe ecran (Foreground)
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('A venit o notificare în timp ce foloseam aplicația!');
-      
       if (message.notification != null) {
-        // Afișăm un banner verde deasupra paginii curente
+        debugPrint("Notificare primită: ${message.notification!.title}");
+
+        // Afișăm un banner vizual în aplicație (SnackBar)
         _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
-            content: Text('${message.notification!.title}: ${message.notification!.body}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            content: Text('${message.notification!.title}: ${message.notification!.body}'),
             backgroundColor: Colors.green.shade700,
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating, // Îl face să arate modern, ca un card plutitor
-            margin: const EdgeInsets.all(10),
+            behavior: SnackBarBehavior.floating,
           ),
+        );
+
+        // Declanșăm notificarea în bara de sistem a telefonului
+        await NotificationService.showNotification(
+          message.notification!.title ?? "Trash Selector",
+          message.notification!.body ?? "",
         );
       }
     });
@@ -88,20 +98,41 @@ class _TrashSelectorAppState extends State<TrashSelectorApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      scaffoldMessengerKey: _scaffoldMessengerKey, // <-- NOU 6: Am conectat cheia aici!
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       title: 'Trash Selector',
       theme: ThemeData(
-        primarySwatch: Colors.green,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
-      initialRoute: '/splash',
+      // Sistemul de pază pentru Autentificare
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // Verificăm dacă conexiunea cu Firebase este activă
+          if (snapshot.connectionState == ConnectionState.active) {
+            User? user = snapshot.data;
+            if (user == null) {
+              return const LoginPage(); // Nu e logat
+            }
+            return const HomePage(); // Este logat
+          }
+          
+          // Ecran de tranziție scurtă (Loading/Splash)
+          return const SplashPage();
+        },
+      ),
+      // Definirea rutelor pentru navigarea manuală
       routes: {
         '/splash': (context) => const SplashPage(),
-        '/': (context) => HomePage(),
-        '/scan': (context) => ScanPage(),
-        '/result': (context) => ResultPage(),
-        '/map': (context) => MapPage(),
+        '/home': (context) => const HomePage(),
+        '/scan': (context) => const ScanPage(),
+        '/result': (context) => const ResultPage(),
+        '/map': (context) => const MapPage(),
+        '/login': (context) => const LoginPage(),
+        '/profile': (context) => const ProfilePage(),
+        '/history': (context) => const HistoryPage(),
+        '/leaderboard': (context) => const LeaderboardPage(),
       },
     );
   }

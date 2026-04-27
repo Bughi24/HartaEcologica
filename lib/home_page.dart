@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import necesar pentru Logout și User info
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Preluăm datele utilizatorului logat curent
+    final User? user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       body: Stack(
         children: [
-          // 1. FUNDAL MODERN (Natură / Prospețime)
+          // FUNDAL CU GRADIENT ECOLOGIC
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -18,8 +22,8 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
-          
-          // 2. ELEMENTE DE DESIGN (Cercuri decorative)
+
+          // ELEMENTE DE DESIGN (Cercuri decorative)
           Positioned(
             top: -50,
             right: -50,
@@ -45,31 +49,65 @@ class HomePage extends StatelessWidget {
             ),
           ),
 
-          // 3. CONȚINUTUL PRINCIPAL
+          // CONȚINUTUL PRINCIPAL
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 50),
-                  
-                  // Salut și Titlu
-                  const Text(
-                    'Salutare! 👋',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                 // RÂNDUL DE SUS: Salut și Buton Profil
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        const Text(
+          'Salutare! 👋',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        Text(
+          user?.email ?? 'Utilizator',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.green.shade900,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+    // BUTONUL CĂTRE PAGINA DE PROFIL
+    GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/profile'),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.5),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: const Icon(
+          Icons.person_rounded, 
+          color: Color(0xFF1B5E20), 
+          size: 30
+        ),
+      ),
+    ),
+  ],
+),
+                  const SizedBox(height: 40),
                   const Text(
                     'Harta Ecologică',
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF1B5E20), // Verde închis
+                      color: Color(0xFF1B5E20),
                       letterSpacing: -1,
                     ),
                   ),
@@ -82,7 +120,7 @@ class HomePage extends StatelessWidget {
                       height: 1.4,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 50),
 
                   // CARDS (Butoanele de navigare)
@@ -104,9 +142,18 @@ class HomePage extends StatelessWidget {
                           title: 'Harta Reciclării',
                           subtitle: 'Găsește pubele în apropierea ta',
                           icon: Icons.map_rounded,
-                          color: const Color(0xFF1565C0), // Albastru
+                          color: const Color(0xFF1565C0),
                           route: '/map',
                         ),
+                        const SizedBox(height: 20),
+                        _buildGlassCard(
+  context: context,
+  title: 'Clasament',
+  subtitle: 'Vezi cine reciclează cel mai mult',
+  icon: Icons.emoji_events_rounded,
+  color: Colors.orange.shade700,
+  route: '/leaderboard',
+),
                       ],
                     ),
                   ),
@@ -133,7 +180,7 @@ class HomePage extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.85), // Efect translucid
+          color: Colors.white.withOpacity(0.85),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -149,7 +196,6 @@ class HomePage extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Iconița cu fundal colorat
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -159,8 +205,6 @@ class HomePage extends StatelessWidget {
               child: Icon(icon, color: color, size: 32),
             ),
             const SizedBox(width: 20),
-            
-            // Textul cardului
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,8 +228,6 @@ class HomePage extends StatelessWidget {
                 ],
               ),
             ),
-            
-            // Săgeata
             Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade400, size: 18),
           ],
         ),

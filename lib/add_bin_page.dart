@@ -27,7 +27,7 @@ class _AddBinPageState extends State<AddBinPage> {
   Set<String> selectedTypes = {'plastic'}; // Tipul de deșeu implicit
 
   // Lista categoriilor de reciclare disponibile (sincronizată cu baza de date)
-  final List<String> binTypes = ['plastic', 'paper', 'glass', 'metal', 'batteries'];
+  final List<String> binTypes = ['plastic', 'hârtie', 'sticlă', 'metal', 'baterii'];
 
   // Configurare parametri model neural
   // Dimensiunea 224x224 este standard pentru arhitecturile de tip MobileNet
@@ -43,7 +43,7 @@ class _AddBinPageState extends State<AddBinPage> {
     });
   }
 
-  /// Inițializează interpretorul TFLite și încarcă etichetele claselor.
+  // Inițializează interpretorul TFLite și încarcă etichetele claselor.
   Future<void> _initModel() async {
     try {
       interpreter = await Interpreter.fromAsset('assets/model/bin_model.tflite');
@@ -54,7 +54,7 @@ class _AddBinPageState extends State<AddBinPage> {
     }
   }
 
-  /// Gestionează captura imaginii folosind camera dispozitivului.
+  // Gestionează captura imaginii folosind camera dispozitivului.
   Future<void> pickImage() async {
     final picker = ImagePicker();
     // Limităm rezoluția pentru optimizarea performanței
@@ -92,9 +92,6 @@ class _AddBinPageState extends State<AddBinPage> {
 
       img.Image image = img.bakeOrientation(originalImage);
       
-      // 1. OPTIMIZARE: Folosim decupaj pătrat central (Center Crop)
-      // Acest lucru forțează utilizatorul să pună pubela în centrul camerei
-      // și elimină marginile (clădiri, peisaje) care derutează modelul.
       int cropSize = image.width > image.height ? image.height : image.width;
       img.Image cropped = img.copyCrop(
         image, 
@@ -119,10 +116,7 @@ class _AddBinPageState extends State<AddBinPage> {
       
       debugPrint("Scor inferență: $score"); 
 
-      // 2. OPTIMIZARE: Creșterea pragului de selecție
-      // Un model binar are nevoie de un prag mult mai mare pentru a elimina
-      // fals pozitivele din mediul urban (mall-uri, mașini).
-      bool isBin = score > 0.90; // <-- Schimbat de la 0.70 la 0.90
+      bool isBin = score > 0.90; 
 
       setState(() {
         isBusy = false;
@@ -149,7 +143,7 @@ class _AddBinPageState extends State<AddBinPage> {
      body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. UI MODERN: Previzualizarea imaginii (Rounded Corners + Shadow)
+            // UI MODERN: Previzualizarea imaginii (Rounded Corners + Shadow)
             Container(
               margin: const EdgeInsets.all(20),
               height: 320,
@@ -184,7 +178,7 @@ class _AddBinPageState extends State<AddBinPage> {
                   : null,
             ),
             
-            // 2. UI MODERN: Starea de încărcare a Inteligenței Artificiale
+            // UI MODERN: Starea de încărcare a Inteligenței Artificiale
             if (isBusy)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -278,16 +272,16 @@ class _AddBinPageState extends State<AddBinPage> {
           ),
           const SizedBox(height: 15),
           
-          // NOU: Interfață cu selecție multiplă (Filter Chips)
+          // Interfață cu selecție multiplă (Filter Chips)
           Wrap(
-            spacing: 10.0, // Spațiul orizontal dintre butoane
-            runSpacing: 10.0, // Spațiul vertical dintre linii
+            spacing: 10.0, 
+            runSpacing: 10.0, 
             children: binTypes.map((String type) {
               bool isSelected = selectedTypes.contains(type);
               
               return FilterChip(
                 selected: isSelected,
-                showCheckmark: false, // Ascundem bifa standard pentru a folosi iconițele noastre
+                showCheckmark: false, 
                 selectedColor: _getColorForType(type).withOpacity(0.8),
                 backgroundColor: Colors.grey.shade200,
                 elevation: isSelected ? 4 : 0,

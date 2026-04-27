@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
+import 'services/database_service.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key});
@@ -38,38 +39,52 @@ class _ScanPageState extends State<ScanPage> {
       debugPrint("Eroare model: $e");
     }
   }
-
+// --- REPARARE METODA pickImage ---
   Future<void> pickImage() async {
     final picker = ImagePicker();
+    
+    // Resetăm obligatoriu înainte de orice acțiune
+    setState(() {
+      isInferencing = false; 
+      imagePath = null;
+    });
+
     final XFile? file = await picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 1024, 
-      imageQuality: 100, 
+      maxWidth: 1024,
+      imageQuality: 85, // Optimizat pentru viteză
     );
 
-    if (file == null) return;
+    if (file == null) return; // Utilizatorul a închis camera
 
     setState(() {
       imagePath = file.path;
-      isInferencing = true;
+      isInferencing = true; // Pornim animația
     });
 
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Mic delay pentru a lăsa UI-ul să respire
+    await Future.delayed(const Duration(milliseconds: 150));
     await classify(File(file.path));
   }
 
+  // --- REPARARE METODA classify ---
   Future<void> classify(File imageFile) async {
-    if (interpreter == null) return;
+    final DatabaseService db = DatabaseService();
+
+    if (interpreter == null) {
+      setState(() => isInferencing = false);
+      return;
+    }
 
     try {
       final bytes = await imageFile.readAsBytes();
       img.Image? originalImage = img.decodeImage(bytes);
-      if (originalImage == null) return;
+      if (originalImage == null) throw Exception("Imagine coruptă");
 
       img.Image baseImage = img.bakeOrientation(originalImage);
       List<double> totalScores = List.filled(labels.length, 0.0);
 
-      // TTA (Test Time Augmentation) - 3 pase de inferență
+      // Executăm cele 3 inferențe (TTA)
       await _runInference(baseImage, totalScores);
       await _runInference(img.copyRotate(baseImage, angle: 90), totalScores);
       await _runInference(img.copyFlip(baseImage, direction: img.FlipDirection.horizontal), totalScores);
@@ -88,13 +103,32 @@ class _ScanPageState extends State<ScanPage> {
       String detectedLabel = labels[maxIdx];
       if (maxScore < 0.55) detectedLabel = 'trash';
 
-      setState(() => isInferencing = false);
-
       if (mounted) {
-        Navigator.pushNamed(context, '/result', arguments: detectedLabel);
+        // IMPORTANT: Oprim animația ÎNAINTE de a pleca de pe pagină
+        setState(() => isInferencing = false);
+        await db.saveScan(detectedLabel, maxScore);
+        Navigator.pushNamed(
+          context, 
+          '/result', 
+          arguments: {
+            'label': detectedLabel,
+            'confidence': maxScore,
+          },
+        );
       }
     } catch (e) {
-      setState(() => isInferencing = false);
+      debugPrint("Eroare clasificare: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Eroare la procesare: $e")),
+        );
+      }
+    } finally {
+      // Blocul FINALLY se execută MEREU (chiar dacă e succes, chiar dacă e eroare)
+      // Este "siguranța" care oprește loading-ul infinit
+      if (mounted) {
+        setState(() => isInferencing = false);
+      }
     }
   }
 

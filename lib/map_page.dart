@@ -5,9 +5,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Modul pentru baza de date NoSQL
-import '../secret.dart'; 
-import 'add_bin_page.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../secret.dart';
+import 'add_bin_page.dart';
+import 'package:flutter_map_cache/flutter_map_cache.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -17,46 +20,67 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  // Constante UI - Iconița default (folosită doar ca fallback)
-  final IconData defaultIcon = Icons.delete_rounded;  
+  final IconData defaultIcon = Icons.delete_rounded;
 
-  // Structuri de date pentru gestionarea punctelor de interes (POI)
-  List<dynamic> _allRecyclingElements = []; // Buffer pentru datele brute preluate din OpenStreetMap
-  List<Map<String, dynamic>> _rawFirebaseData = []; // Buffer pentru documentele brute din Firestore
+  List<dynamic> _allRecyclingElements = [];
+  List<Map<String, dynamic>> _rawFirebaseData = [];
 
-  List<Marker> _apiMarkers = [];            // Markere generate din datele statice (API)
-  List<Marker> _firebaseMarkers = [];       // Markere dinamice sincronizate în timp real (Cloud)
+  List<Marker> _apiMarkers = [];
+  List<Marker> _firebaseMarkers = [];
 
-  // Variabile de stare pentru geolocalizare și rutare
-  LatLng? _userLocation; // Coordonatele curente ale utilizatorului
-  Set<String> activeFilters = {}; // Set de filtre active pentru tipurile de reciclare
-  LatLng? _selectedDestination; // Coordonatele destinației selectate pentru rutare
-  List<LatLng> _routePoints = []; // Coordonatele poliliniei pentru afișarea rutei
-  StreamSubscription<Position>? _positionStream; 
-  final MapController _mapController = MapController();  
-  String? _formattedDistance; 
-  
-  // Flag pentru modul de urmărire automată a utilizatorului
+  LatLng? _userLocation;
+  Set<String> activeFilters = {};
+  LatLng? _selectedDestination;
+  List<LatLng> _routePoints = [];
+  StreamSubscription<Position>? _positionStream;
+  final MapController _mapController = MapController();
+  String? _formattedDistance;
+
   bool _isTrackingUser = true;
+
+  // Gardă pentru a aplica filtrul din argumente o singură dată
+  bool _filtersInitialized = false;
+
+  final _cacheStore = MemCacheStore();
 
   @override
   void initState() {
     super.initState();
-    // Inițializarea asincronă a serviciilor de date și localizare
-    _fetchRecyclingPoints();      // Interogare API extern (Overpass)
-    _listenToFirebaseBins();      // Stabilire conexiune WebSocket cu Firestore
-    _startLiveLocationUpdates();  // Activare servicii GNSS
+    _fetchRecyclingPoints();
+    _listenToFirebaseBins();
+    _startLiveLocationUpdates();
+  }
+
+  // didChangeDependencies este primul loc unde putem accesa ModalRoute
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Aplicăm filtrul din argumente o singură dată
+    if (!_filtersInitialized) {
+      _filtersInitialized = true;
+
+      final String? filterArg =
+          ModalRoute.of(context)?.settings.arguments as String?;
+
+      if (filterArg != null && filterArg.isNotEmpty) {
+        setState(() {
+          activeFilters.add(filterArg);
+        });
+        // _filterMarkers va fi apelat după ce datele sunt încărcate,
+        // dar dacă sunt deja disponibile, le filtrăm imediat
+        _filterMarkers();
+      }
+    }
   }
 
   @override
   void dispose() {
-    // Eliberarea resurselor și oprirea stream-urilor pentru prevenirea memory leaks
     _positionStream?.cancel();
     _mapController.dispose();
     super.dispose();
   }
 
-  // Determină culoarea markerului în funcție de tipul deșeului.
   Color _getMarkerColor(String type) {
     switch (type.toLowerCase()) {
       case 'plastic': return Colors.amber.shade700;
@@ -64,8 +88,8 @@ class _MapPageState extends State<MapPage> {
       case 'glass': return Colors.green.shade600;
       case 'metal': return Colors.grey.shade700;
       case 'batteries': return Colors.red.shade600;
-      case 'mixed': return Colors.purple.shade600; // Culoare distinctivă pentru puncte multi-colectare
-      default: return const Color(0xFF2E7D32);     // Fallback (Verde)
+      case 'mixed': return Colors.purple.shade600;
+      default: return const Color(0xFF2E7D32);
     }
   }
 
@@ -80,24 +104,19 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // Generator de widget-uri pentru reprezentarea vizuală a markerelor
   Widget _buildUnifiedMarker(String tooltipText, String type, VoidCallback onTap) {
     final Color markerColor = _getMarkerColor(type);
-    
-    // Logică de selecție a iconiței: 
-    // Dacă punctul este mixt, folosim simbolul universal de reciclare.
-    // Altfel, folosim simbolul standard de recipient.
     final IconData markerIcon = type == 'mixed' ? Icons.recycling : Icons.delete_rounded;
 
-    return GestureDetector( 
+    return GestureDetector(
       onTap: onTap,
-      child: Tooltip( 
+      child: Tooltip(
         message: tooltipText,
-        child: Container( 
+        child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: markerColor, width: 3), // Bordură colorată semantic
+            border: Border.all(color: markerColor, width: 3),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black26,
@@ -107,47 +126,44 @@ class _MapPageState extends State<MapPage> {
             ],
           ),
           child: Icon(
-            markerIcon, 
-            color: markerColor, 
-            size: 24, 
+            markerIcon,
+            color: markerColor,
+            size: 24,
           ),
         ),
       ),
     );
   }
 
-  // Inițializează un ascultător (listener) pe colecția 'bins' din Firestore.
   void _listenToFirebaseBins() {
     FirebaseFirestore.instance
-        .collection('bins') // Referință către colecția NoSQL
-        .snapshots()        // Stream de documente (Snapshot-uri)
+        .collection('bins')
+        .snapshots()
         .listen((snapshot) {
-        
-        List<Map<String, dynamic>> tempData = [];
-        for(var doc in snapshot.docs) {
-          final data = doc.data();
-          if(data['lat'] != null && data['lon'] != null) {
-            tempData.add(data);
-          }
+      List<Map<String, dynamic>> tempData = [];
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        if (data['lat'] != null && data['lon'] != null) {
+          tempData.add(data);
         }
-        
-        if(mounted){
-          setState(() {
-            _rawFirebaseData = tempData; // Actualizare buffer de date brute
-          });
-          _filterMarkers(); // Reaplicare filtre și regenerare markere
-        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _rawFirebaseData = tempData;
+        });
+        _filterMarkers();
+      }
     });
   }
 
-  // Persistă un nou punct de colectare în infrastructura Cloud.
   Future<void> _addBinToFirebase(double lat, double lon, List<String> types) async {
     try {
       await FirebaseFirestore.instance.collection('bins').add({
         'lat': lat,
         'lon': lon,
-        'types': types, // Aici salvăm array-ul complet cu tipuri
-        'timestamp': FieldValue.serverTimestamp(), 
+        'types': types,
+        'timestamp': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       debugPrint("Eroare la persistența datelor în Cloud: $e");
@@ -157,37 +173,32 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // --- NOU: Gestionează interacțiunea utilizatorului cu un marker și deschide Bottom Sheet-ul ---
   void _onMarkerTap(LatLng destination, String description) {
-      setState(() {
-        _isTrackingUser = false; // Dezactivează centrarea automată
-        _selectedDestination = destination;
-        
-        if (_userLocation != null) {
-             final dist = Geolocator.distanceBetween(
-                _userLocation!.latitude, _userLocation!.longitude,
-                destination.latitude, destination.longitude
-             );
-             _formattedDistance = dist >= 1000 
-                ? '${(dist/1000).toStringAsFixed(2)} km' 
-                : '${dist.toStringAsFixed(0)} m';
-        } else {
-             _formattedDistance = "Distanță necunoscută";
-        }
-      });
-      
-      // 1. Calculăm traseul (linia de pe hartă)
-      _getRouteToDestination();
+    setState(() {
+      _isTrackingUser = false;
+      _selectedDestination = destination;
 
-      // 2. Afișăm panoul modern din partea de jos (Bottom Sheet)
-      _showRouteDetailsSheet(description);
+      if (_userLocation != null) {
+        final dist = Geolocator.distanceBetween(
+          _userLocation!.latitude, _userLocation!.longitude,
+          destination.latitude, destination.longitude,
+        );
+        _formattedDistance = dist >= 1000
+            ? '${(dist / 1000).toStringAsFixed(2)} km'
+            : '${dist.toStringAsFixed(0)} m';
+      } else {
+        _formattedDistance = "Distanță necunoscută";
+      }
+    });
+
+    _getRouteToDestination();
+    _showRouteDetailsSheet(description);
   }
 
-  // --- NOU: UI MODERN - Meniul glisant de jos (Bottom Sheet) ---
   void _showRouteDetailsSheet(String title) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent, // Lăsăm transparent pentru a face propriul design cu colțuri rotunjite
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext context) {
         return Container(
@@ -203,7 +214,6 @@ class _MapPageState extends State<MapPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Linia gri mică de sus (Drag handle)
               Center(
                 child: Container(
                   width: 50,
@@ -215,15 +225,13 @@ class _MapPageState extends State<MapPage> {
                 ),
               ),
               const SizedBox(height: 25),
-              
-              // Titlul pubelei (Descrierea completă din Firebase/OSM)
+
               Text(
                 title,
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.3),
               ),
               const SizedBox(height: 25),
 
-              // Detalii traseu (Card Verde)
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -244,7 +252,7 @@ class _MapPageState extends State<MapPage> {
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           )
-                        ]
+                        ],
                       ),
                       child: const Icon(Icons.directions_walk_rounded, color: Colors.green, size: 32),
                     ),
@@ -252,7 +260,10 @@ class _MapPageState extends State<MapPage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Traseu Pietonal", style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500)),
+                        const Text(
+                          "Traseu Pietonal",
+                          style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
                         const SizedBox(height: 5),
                         Text(
                           _formattedDistance ?? "Calculare...",
@@ -265,7 +276,6 @@ class _MapPageState extends State<MapPage> {
               ),
               const SizedBox(height: 30),
 
-              // Buton de acțiune
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -278,18 +288,16 @@ class _MapPageState extends State<MapPage> {
                   ),
                   icon: const Icon(Icons.check_circle_outline, size: 24),
                   label: const Text("Am înțeles", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  onPressed: () => Navigator.pop(context), // Închide panoul
+                  onPressed: () => Navigator.pop(context),
                 ),
               ),
             ],
           ),
         );
       },
-    ).whenComplete(() {
-    });
+    ).whenComplete(() {});
   }
 
-  // Modulul de Validare și Adăugare
   Future<void> _addNewBin() async {
     if (_userLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -298,24 +306,21 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
-    // Navigare către modulul de clasificare a imaginii
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddBinPage()),
     );
 
     if (result != null && result is Map) {
-    
-      final List<String> types = List<String>.from(result['types']); 
-      
+      final List<String> types = List<String>.from(result['types']);
       final double lat = _userLocation!.latitude;
       final double lon = _userLocation!.longitude;
 
-      // Declanșarea procedurii de scriere în baza de date
       await _addBinToFirebase(lat, lon, types);
 
-      // Afișăm culoarea corectă în SnackBar
-      Color snackColor = types.length > 1 ? Colors.purple.shade600 : _getMarkerColor(types.first);
+      Color snackColor = types.length > 1
+          ? Colors.purple.shade600
+          : _getMarkerColor(types.first);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -326,37 +331,51 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // Integrare API OpenStreetMap (Overpass) 
   Future<void> _fetchRecyclingPoints() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    final String? cachedData = prefs.getString('osm_recycling_cache');
+    if (cachedData != null) {
+      final decodedData = json.decode(cachedData);
+      if (mounted) {
+        setState(() {
+          _allRecyclingElements = decodedData['elements'] as List;
+        });
+        _filterMarkers();
+        debugPrint("📍 Date OSM încărcate din Cache (Offline)");
+      }
+    }
+
     final overpassQuery = '''
-    [out:json][timeout:25];
-    area["name"="România"]->.searchArea;
-    node["amenity"="recycling"](area.searchArea);
-    out body;
+      [out:json][timeout:15];
+      area["name"="România"]->.searchArea;
+      node["amenity"="recycling"](area.searchArea);
+      out body;
     ''';
 
     try {
       final response = await http.post(
         Uri.parse('https://overpass-api.de/api/interpreter'),
         body: {'data': overpassQuery},
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
+        await prefs.setString('osm_recycling_cache', response.body);
+
         final data = json.decode(response.body);
         if (mounted) {
-            setState(() {
+          setState(() {
             _allRecyclingElements = data['elements'] as List;
-            });
-            _filterMarkers();
+          });
+          _filterMarkers();
+          debugPrint("🌍 Date OSM actualizate de pe Server");
         }
       }
     } catch (e) {
-      debugPrint('Eroare la interogarea API Overpass: $e');
+      debugPrint('⚠️ Notă: Nu s-au putut actualiza punctele (Internet slab). Folosim cache-ul existent.');
     }
   }
 
-  //  Filtrare și Procesare Date
-  // Aplică filtrele active și determină dacă un punct este "Mixt" sau simplu.
   void _filterMarkers() {
     setState(() {
       _apiMarkers = _allRecyclingElements.map((element) {
@@ -364,8 +383,7 @@ class _MapPageState extends State<MapPage> {
         final lon = element['lon'];
         final tags = element['tags'] ?? {};
         final name = tags['name'] ?? 'Punct reciclare';
-        
-        // Extragerea categoriilor de reciclare din tag-urile OSM
+
         final types = [
           if (tags['recycling:plastic'] == 'yes') 'plastic',
           if (tags['recycling:paper'] == 'yes') 'paper',
@@ -374,66 +392,21 @@ class _MapPageState extends State<MapPage> {
           if (tags['recycling:batteries'] == 'yes') 'batteries',
         ];
 
-        // Logica de intersecție pentru filtrare
         if (activeFilters.isNotEmpty && activeFilters.intersection(types.toSet()).isEmpty) {
           return null;
         }
 
         String infoText = name;
-        String primaryType = 'unknown'; 
-        
-        // LOGICA DE AGREGARE VIZUALĂ OSM 
+        String primaryType = 'unknown';
+
         if (types.length > 1) {
-           primaryType = 'mixed';
-           String typesRo = types.map((t) => _translateType(t)).join(", ");
-           infoText += "\nCentru Colectare: $typesRo";
+          primaryType = 'mixed';
+          String typesRo = types.map((t) => _translateType(t)).join(", ");
+          infoText += "\nCentru Colectare: $typesRo";
         } else if (types.isNotEmpty) {
-           primaryType = types.first; 
-           String typesRo = _translateType(primaryType);
-           infoText += "\nAcceptă: $typesRo";
-        }
-
-        return Marker(
-          width: 45.0,
-          height: 45.0,
-          point: LatLng(lat, lon),
-          child: _buildUnifiedMarker(
-            infoText,
-            primaryType, 
-            () {
-               _onMarkerTap(LatLng(lat, lon), name);
-            }
-          ),
-        );
-      }).whereType<Marker>().toList();
-      
-      // Procesare datelor din Firebase și aplicare filtre
-      _firebaseMarkers = _rawFirebaseData.map((data){
-        final double lat = (data['lat'] as num).toDouble();
-        final double lon = (data['lon'] as num).toDouble();
-        
-        // Extragem lista de tipuri din Firebase (compatibil și cu date vechi lipsă)
-        final List<String> types = data['types'] != null 
-            ? List<String>.from(data['types']) 
-            : (data['type'] != null ? [data['type']] : []); // Fallback pentru punctele vechi
-
-        // Logica de intersecție pentru filtrare
-        if (activeFilters.isNotEmpty && activeFilters.intersection(types.toSet()).isEmpty) {
-          return null;
-        }
-
-        String infoText = 'Punct adăugat de utilizatori';
-        String primaryType = 'unknown'; 
-        
-        // LOGICĂ DE AGREGARE FIREBASE
-        if (types.length > 1) {
-           primaryType = 'mixed';
-           String typesRo = types.map((t) => _translateType(t)).join(", ");
-           infoText += "\nCentru Colectare: $typesRo";
-        } else if (types.isNotEmpty) {
-           primaryType = types.first; 
-           String typesRo = _translateType(primaryType);
-           infoText += "\nAcceptă: $typesRo";
+          primaryType = types.first;
+          String typesRo = _translateType(primaryType);
+          infoText += "\nAcceptă: $typesRo";
         }
 
         return Marker(
@@ -443,16 +416,50 @@ class _MapPageState extends State<MapPage> {
           child: _buildUnifiedMarker(
             infoText,
             primaryType,
-            () {
-              _onMarkerTap(LatLng(lat, lon), 'Punct adăugat de utilizatori');
-            }
+            () => _onMarkerTap(LatLng(lat, lon), name),
+          ),
+        );
+      }).whereType<Marker>().toList();
+
+      _firebaseMarkers = _rawFirebaseData.map((data) {
+        final double lat = (data['lat'] as num).toDouble();
+        final double lon = (data['lon'] as num).toDouble();
+
+        final List<String> types = data['types'] != null
+            ? List<String>.from(data['types'])
+            : (data['type'] != null ? [data['type']] : []);
+
+        if (activeFilters.isNotEmpty && activeFilters.intersection(types.toSet()).isEmpty) {
+          return null;
+        }
+
+        String infoText = 'Punct adăugat de utilizatori';
+        String primaryType = 'unknown';
+
+        if (types.length > 1) {
+          primaryType = 'mixed';
+          String typesRo = types.map((t) => _translateType(t)).join(", ");
+          infoText += "\nCentru Colectare: $typesRo";
+        } else if (types.isNotEmpty) {
+          primaryType = types.first;
+          String typesRo = _translateType(primaryType);
+          infoText += "\nAcceptă: $typesRo";
+        }
+
+        return Marker(
+          width: 45.0,
+          height: 45.0,
+          point: LatLng(lat, lon),
+          child: _buildUnifiedMarker(
+            infoText,
+            primaryType,
+            () => _onMarkerTap(LatLng(lat, lon), 'Punct adăugat de utilizatori'),
           ),
         );
       }).whereType<Marker>().toList();
     });
   }
 
-  // --- Serviciu de Rutare (OpenRouteService) ---
   Future<void> _getRouteToDestination() async {
     if (_userLocation == null || _selectedDestination == null) return;
 
@@ -491,7 +498,6 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // Widget pentru zona de filtrare (Chips) cu culori dinamice
   Widget _buildFilterChips() {
     final categories = ['plastic', 'paper', 'glass', 'metal', 'batteries'];
     return Container(
@@ -499,8 +505,8 @@ class _MapPageState extends State<MapPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
-           BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0,2))
-        ]
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
+        ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -509,13 +515,13 @@ class _MapPageState extends State<MapPage> {
         child: Row(
           children: categories.map((category) {
             final isSelected = activeFilters.contains(category);
-            final typeColor = _getMarkerColor(category); 
+            final typeColor = _getMarkerColor(category);
 
             return Padding(
               padding: const EdgeInsets.only(right: 10.0),
               child: FilterChip(
                 label: Text(
-                  _translateType(category), 
+                  _translateType(category),
                   style: TextStyle(
                     color: isSelected ? Colors.white : typeColor,
                     fontWeight: FontWeight.bold,
@@ -523,11 +529,11 @@ class _MapPageState extends State<MapPage> {
                 ),
                 selected: isSelected,
                 checkmarkColor: Colors.white,
-                selectedColor: typeColor, 
+                selectedColor: typeColor,
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: typeColor), 
+                  side: BorderSide(color: typeColor),
                 ),
                 onSelected: (selected) {
                   setState(() {
@@ -547,23 +553,22 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // --- Geolocalizare ---
   Future<void> _startLiveLocationUpdates() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
-    
+
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return;
     }
-    
+
     _positionStream?.cancel();
-    
+
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high, 
-        distanceFilter: 2 
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 2,
       ),
     ).listen((Position position) {
       if (!mounted) return;
@@ -573,8 +578,8 @@ class _MapPageState extends State<MapPage> {
 
       if (_isTrackingUser) {
         _mapController.move(
-          LatLng(position.latitude, position.longitude), 
-          _mapController.camera.zoom
+          LatLng(position.latitude, position.longitude),
+          _mapController.camera.zoom,
         );
       }
 
@@ -586,9 +591,8 @@ class _MapPageState extends State<MapPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Agregarea surselor de date (API + Cloud) într-un singur strat de afișare
     List<Marker> allDisplayMarkers = [..._apiMarkers, ..._firebaseMarkers];
-    
+
     if (_userLocation != null) {
       allDisplayMarkers.add(
         Marker(
@@ -596,12 +600,12 @@ class _MapPageState extends State<MapPage> {
           height: 40.0,
           point: _userLocation!,
           child: Container(
-             decoration: const BoxDecoration(
-               color: Colors.white,
-               shape: BoxShape.circle,
-               boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)]
-             ),
-             child: const Icon(Icons.my_location, color: Colors.blue, size: 25),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+            ),
+            child: const Icon(Icons.my_location, color: Colors.blue, size: 25),
           ),
         ),
       );
@@ -609,7 +613,10 @@ class _MapPageState extends State<MapPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Harta Reciclării (Online)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          'Harta Reciclării',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         backgroundColor: const Color(0xFF2E7D32),
         centerTitle: true,
         elevation: 0,
@@ -626,7 +633,7 @@ class _MapPageState extends State<MapPage> {
                   mapController: _mapController,
                   options: MapOptions(
                     initialCenter: _userLocation ?? const LatLng(45.9432, 24.9668),
-                    initialZoom: 16.0, 
+                    initialZoom: 16.0,
                     onPositionChanged: (position, hasGesture) {
                       if (hasGesture) {
                         setState(() {
@@ -639,18 +646,21 @@ class _MapPageState extends State<MapPage> {
                     TileLayer(
                       urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
                       subdomains: const ['a', 'b', 'c'],
-                      userAgentPackageName: 'com.example.garbageselection', 
+                      userAgentPackageName: 'com.example.garbageselection',
+                      tileProvider: CachedTileProvider(
+                        store: _cacheStore,
+                        maxStale: const Duration(days: 30),
+                      ),
                     ),
-                    
                     if (_routePoints.isNotEmpty)
                       PolylineLayer(
                         polylines: [
                           Polyline(
                             points: _routePoints,
                             strokeWidth: 5.0,
-                            color: const Color(0xFF2E7D32), 
+                            color: const Color(0xFF2E7D32),
                           ),
-                        ]
+                        ],
                       ),
                     MarkerLayer(markers: allDisplayMarkers),
                   ],
@@ -658,40 +668,37 @@ class _MapPageState extends State<MapPage> {
               ),
             ],
           ),
-          
-         
-          
           Positioned(
-            bottom: 20,
+            bottom: 20 + MediaQuery.of(context).viewPadding.bottom,
             right: 20,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 FloatingActionButton(
                   heroTag: "btn_add",
-                  backgroundColor: Colors.orange, 
+                  backgroundColor: Colors.orange,
                   onPressed: _addNewBin,
                   child: const Icon(Icons.add_a_photo, color: Colors.white),
                 ),
                 const SizedBox(height: 15),
                 FloatingActionButton(
-                  heroTag: "btn_loc", 
+                  heroTag: "btn_loc",
                   backgroundColor: _isTrackingUser ? Colors.blue : const Color(0xFF2E7D32),
                   onPressed: () {
                     if (_userLocation != null) {
                       setState(() {
-                        _isTrackingUser = true; 
+                        _isTrackingUser = true;
                       });
                       _mapController.move(_userLocation!, 16);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Căutăm locația GPS...'))
+                        const SnackBar(content: Text('Căutăm locația GPS...')),
                       );
                     }
                   },
                   child: Icon(
-                    _isTrackingUser ? Icons.gps_fixed : Icons.gps_not_fixed, 
-                    color: Colors.white
+                    _isTrackingUser ? Icons.gps_fixed : Icons.gps_not_fixed,
+                    color: Colors.white,
                   ),
                 ),
               ],
