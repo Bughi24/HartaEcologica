@@ -23,7 +23,7 @@ class HistoryPage extends StatelessWidget {
             .collection('users')
             .doc(user?.uid)
             .collection('scans')
-            .orderBy('timestamp', descending: true) // Cele mai noi primele
+            .orderBy('timestamp', descending: true) 
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

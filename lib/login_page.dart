@@ -55,8 +55,7 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } 
-      // NOTĂ: Dacă user != null, NU mai punem Navigator. 
-      // StreamBuilder din main.dart va detecta schimbarea și te va trimite singur la HomePage.
+
       
     } catch (e) {
       if (mounted) {

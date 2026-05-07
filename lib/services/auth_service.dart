@@ -33,7 +33,7 @@ class AuthService {
     await _auth.signOut();
   }
 
-  // 4. Verificare stare utilizator (E logat sau nu?)
+  // 4. Verificare stare utilizator
   Stream<User?> get user {
     return _auth.authStateChanges();
   }
