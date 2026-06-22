@@ -1,12 +1,12 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
 
-# 1. PARAMETRI (Sect 6.a)
+# PARAMETRI
 IMG_SIZE = 224
 BATCH_SIZE = 32
 EPOCHS = 10
 
-# 2. DATASET (Sect 33)
+# DATASET 
 # Incarcam datele
 train_ds = tf.keras.utils.image_dataset_from_directory(
     'training/garbage_classification',
@@ -28,7 +28,7 @@ val_ds = tf.keras.utils.image_dataset_from_directory(
     label_mode='categorical'
 )
 
-# 3. PROPOSED APPROACH (Sect 4)
+# PROPOSED APPROACH
 # Folosim un strat de preprocesare specific pentru MobileNetV2
 preprocess_input = tf.keras.applications.mobilenet_v2.preprocess_input
 
@@ -56,7 +56,7 @@ def build_paper_model(num_classes):
     model = tf.keras.Model(inputs, outputs)
     return model
 
-# 4. EXPERIMENTS (Sect 5)
+# EXPERIMENTS
 num_classes = len(train_ds.class_names)
 model = build_paper_model(num_classes)
 
@@ -65,6 +65,6 @@ model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accur
 # Start Training
 history = model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS)
 
-# 5. EXPORT (Sect 36)
+# EXPORT 
 model.save('final_waste_model.keras')
-print("Antrenare reusita! Modelul este gata pentru articol.")
+print("Antrenare reusita! Modelul este gata pentru articol.")     

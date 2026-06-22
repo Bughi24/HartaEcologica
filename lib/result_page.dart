@@ -434,9 +434,7 @@ class _ResultPageState extends State<ResultPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Dialog afișat când se câștigă un badge nou
-// ---------------------------------------------------------------------------
+
 
 class _BadgeUnlockedDialog extends StatefulWidget {
   final BadgeDefinition badge;

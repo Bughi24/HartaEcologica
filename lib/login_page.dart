@@ -35,7 +35,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // 1. Pornim starea de încărcare
+    // Pornim starea de încărcare
     setState(() => _isLoading = true);
 
     dynamic user;
@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
         user = await _auth.registerWithEmail(email, password);
       }
 
-      // 2. Dacă logarea a eșuat, oprim încărcarea și afișăm eroarea
+      // Dacă logarea a eșuat, oprim încărcarea și afișăm eroarea
       if (user == null) {
         if (mounted) {
           setState(() => _isLoading = false);

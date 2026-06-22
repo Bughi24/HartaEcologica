@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 1. Înregistrare (Register)
+  // Register
   Future<User?> registerWithEmail(String email, String password) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
@@ -16,7 +16,7 @@ class AuthService {
     }
   }
 
-  // 2. Autentificare (Login)
+  // Login
   Future<User?> loginWithEmail(String email, String password) async {
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
@@ -28,12 +28,12 @@ class AuthService {
     }
   }
 
-  // 3. Logout
+  // Logout
   Future<void> signOut() async {
     await _auth.signOut();
   }
 
-  // 4. Verificare stare utilizator
+  // Verificare stare utilizator
   Stream<User?> get user {
     return _auth.authStateChanges();
   }

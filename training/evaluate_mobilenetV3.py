@@ -13,7 +13,7 @@ model = tf.keras.models.load_model(model_path)
 img_size = 224 # Dimensiunea corectă pentru MobileNetV3
 batch_size = 16
 
-# 2. Generatorul de date 
+# Generatorul de date 
 datagen = ImageDataGenerator(validation_split=0.2)
 
 # Încărcăm strict datele de validare
@@ -40,7 +40,7 @@ print("RAPORT DE CLASIFICARE MOBILENETV3:")
 print("="*50)
 print(classification_report(y_true, y_pred, target_names=class_labels))
 
-# 5. Desenăm Matricea de Confuzie
+# Desenăm Matricea de Confuzie
 cm = confusion_matrix(y_true, y_pred)
 
 plt.figure(figsize=(10, 8))

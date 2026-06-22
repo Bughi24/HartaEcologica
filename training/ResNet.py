@@ -1,69 +1,129 @@
 import tensorflow as tf
+import numpy as np
 from tensorflow.keras import layers, models
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from sklearn.utils.class_weight import compute_class_weight
+from sklearn.metrics import classification_report
 
-# 1. PARAMETRI (Sect 6.a)
 IMG_SIZE = 224
 BATCH_SIZE = 32
-EPOCHS = 10
+EPOCHS = 25
 
-# 2. DATASET (Asigură-te că folderul e corect)
-train_ds = tf.keras.utils.image_dataset_from_directory(
-    'training/garbage_classification',
+# Generator cu augmentare pentru train
+train_datagen = ImageDataGenerator(
+    preprocessing_function=preprocess_input,
     validation_split=0.2,
-    subset="training",
-    seed=123,
-    image_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE,
-    label_mode='categorical'
+    rotation_range=25,
+    width_shift_range=0.15,
+    height_shift_range=0.15,
+    shear_range=0.1,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest'
 )
 
-val_ds = tf.keras.utils.image_dataset_from_directory(
-    'training/garbage_classification',
-    validation_split=0.2,
-    subset="validation",
-    seed=123,
-    image_size=(IMG_SIZE, IMG_SIZE),
-    batch_size=BATCH_SIZE,
-    label_mode='categorical'
+# Generator fara augmentare pentru validare
+val_datagen = ImageDataGenerator(
+    preprocessing_function=preprocess_input,
+    validation_split=0.2
 )
 
-# 3. PROPOSED APPROACH: ResNet50 (Sect 4)
+train_data = train_datagen.flow_from_directory(
+    'training/garbage_classification',
+    target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    subset='training',
+    seed=42
+)
+
+val_data = val_datagen.flow_from_directory(
+    'training/garbage_classification',
+    target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    subset='validation',
+    shuffle=False,
+    seed=42
+)
+
+classes = list(train_data.class_indices.keys())
+num_classes = len(classes)
+
+# Class weights
+labels_raw = train_data.classes
+class_weights = compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(labels_raw),
+    y=labels_raw
+)
+class_weights = dict(enumerate(class_weights))
+print("\nClass Weights:", class_weights, "\n")
+
+# Model
 def build_resnet_model(num_classes):
-    inputs = tf.keras.Input(shape=(IMG_SIZE, IMG_SIZE, 3))
-    
-    # Preprocesarea specifică ResNet50 (conversie RGB -> BGR și centrare medie)
-    x = tf.keras.applications.resnet50.preprocess_input(inputs)
-    
-    # Backbone-ul ResNet50
     base_model = tf.keras.applications.ResNet50(
+        input_shape=(IMG_SIZE, IMG_SIZE, 3),
         include_top=False,
-        weights='imagenet',
-        input_tensor=x
+        weights='imagenet'
     )
-    base_model.trainable = False # Înghețăm straturile pentru Transfer Learning
-    
-    # Capul de clasificare
-    x = layers.GlobalAveragePooling2D()(base_model.output)
-    x = layers.BatchNormalization()(x) # Adăugăm stabilitate
+
+    # Fine-tuning ultimele 40 straturi
+    for layer in base_model.layers[:-40]:
+        layer.trainable = False
+    for layer in base_model.layers[-40:]:
+        layer.trainable = True
+
+    x = base_model.output
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.BatchNormalization()(x)
     x = layers.Dropout(0.3)(x)
     outputs = layers.Dense(num_classes, activation='softmax')(x)
-    
-    model = tf.keras.Model(inputs, outputs, name="ResNet50_Waste_Classifier")
+
+    model = tf.keras.Model(
+        inputs=base_model.input,
+        outputs=outputs,
+        name="ResNet50_Waste_Classifier"
+    )
     return model
 
-# 4. TRAINING
-num_classes = len(train_ds.class_names)
 model = build_resnet_model(num_classes)
 
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),
     loss='categorical_crossentropy',
     metrics=['accuracy']
 )
 
-print("Începe antrenarea cu ResNet50...")
-history = model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS)
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
+    ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=2, min_lr=1e-6),
+    ModelCheckpoint("best_resnet50.h5", monitor='val_loss', save_best_only=True)
+]
 
-# 5. EXPORT
-model.save('resnet50_waste_model.keras')
+print("Începe antrenarea cu ResNet50 + Augmentare...")
+model.fit(
+    train_data,
+    validation_data=val_data,
+    epochs=EPOCHS,
+    class_weight=class_weights,
+    callbacks=callbacks
+)
+
+model.save('resnet50_augmented.keras')
 print("Modelul ResNet50 a fost salvat!")
+
+# EVALUARE
+print("Generare raport...")
+preds = model.predict(val_data)
+y_pred = np.argmax(preds, axis=1)
+y_true = val_data.classes
+
+report = classification_report(y_true, y_pred, target_names=classes)
+print(report)
+
+with open("resnet50_aug_report.txt", "w", encoding="utf-8") as f:
+    f.write(report)
+print("Raport salvat in resnet50_aug_report.txt!")

@@ -37,7 +37,6 @@ class _AddBinPageState extends State<AddBinPage> {
   void initState() {
     super.initState();
     _initModel();
-    // Declanșarea automată a camerei la inițializarea paginii
     WidgetsBinding.instance.addPostFrameCallback((_) {
       pickImage();
     });
@@ -220,7 +219,7 @@ class _AddBinPageState extends State<AddBinPage> {
                 ),
               )
             
-            // Formularul de succes sau eroare (Rămân exact cum le-ai făcut tu!)
+            // Formularul de succes sau eroare 
             else if (hasAnalyzed && isValidBin)
               _buildSuccessForm()
 
@@ -330,10 +329,10 @@ class _AddBinPageState extends State<AddBinPage> {
                 // Dezactivăm butonul dacă nu e nimic selectat
                 disabledBackgroundColor: Colors.grey.shade400,
               ),
-              // Logica de validare: Permite salvarea DOAR dacă e selectat cel puțin un tip
+              
               onPressed: selectedTypes.isEmpty ? null : () {
                 Navigator.pop(context, {
-                  'types': selectedTypes.toList(), // Returnăm o LISTĂ de tipuri acum!
+                  'types': selectedTypes.toList(),
                   'verified': true
                 });
               },

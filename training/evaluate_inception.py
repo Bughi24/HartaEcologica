@@ -51,7 +51,7 @@ print(classification_report(y_true, y_pred, target_names=class_labels))
 cm = confusion_matrix(y_true, y_pred)
 
 plt.figure(figsize=(10, 8))
-# Desenăm un heatmap frumos, cu nuanțe de verde 
+# heatmap
 sns.heatmap(cm, annot=True, fmt='d', cmap='Greens', 
             xticklabels=class_labels, 
             yticklabels=class_labels)

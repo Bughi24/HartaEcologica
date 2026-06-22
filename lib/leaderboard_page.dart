@@ -15,7 +15,6 @@ class LeaderboardPage extends StatelessWidget {
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // Interogare: Căutăm în toți utilizatorii, sortăm după totalScans (descrescător) și luăm primii 10
         stream: FirebaseFirestore.instance
             .collection('users')
             .orderBy('totalScans', descending: true)
@@ -37,16 +36,12 @@ class LeaderboardPage extends StatelessWidget {
             itemCount: topUsers.length,
             itemBuilder: (context, index) {
               final userData = topUsers[index].data() as Map<String, dynamic>;
-              // Înlocuiește bucata de cod din ListView.builder cu asta:
-final String email = userData['email'] ?? "Anonim";
-// Luăm ce e înainte de @, sau dacă nu e email, lăsăm textul întreg
-final String displayName = email.contains('@') 
-    ? email.split('@')[0].toUpperCase() 
-    : email.toUpperCase();
+              final String email = userData['email'] ?? "Anonim";
+              final String displayName = email.contains('@') 
+                 ? email.split('@')[0].toUpperCase() 
+                 : email.toUpperCase();
               final int scans = userData['totalScans'] ?? 0;
           
-
-              // Design special pentru primele 3 locuri
               bool isTop3 = index < 3;
 
               return Card(

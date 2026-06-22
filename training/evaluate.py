@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix
 
-# 1. SETĂRI ȘI PARAMETRI (Trebuie să fie aceiași ca la antrenare)
+# SETĂRI ȘI PARAMETRI 
 IMG_SIZE = 224
 BATCH_SIZE = 32
 
-# 2. ÎNCĂRCARE DATASET DE VALIDARE
+# ÎNCĂRCARE DATASET DE VALIDARE
 # Folosim aceleași setări pentru a extrage exact aceleași imagini de test
 val_ds = tf.keras.utils.image_dataset_from_directory(
     'training/garbage_classification',
@@ -22,13 +22,13 @@ val_ds = tf.keras.utils.image_dataset_from_directory(
 
 class_names = val_ds.class_names
 
-# 3. ÎNCĂRCARE MODEL SALVAT
+# ÎNCĂRCARE MODEL SALVAT
 print("Se încarcă modelul...")
 model = tf.keras.models.load_model('final_waste_model.keras')
 
 print("Se generează predicțiile (acest proces poate dura câteva minute)...")
 
-# 4. COLECTARE PREDICȚII ȘI ETICHETE REALE
+# COLECTARE PREDICȚII ȘI ETICHETE REALE
 y_true = []
 y_pred = []
 
@@ -41,7 +41,7 @@ for images, labels in val_ds:
     preds = model.predict(images, verbose=0)
     y_pred.extend(np.argmax(preds, axis=1))
 
-# 5. GENERARE CLASSIFICATION REPORT (Text pentru Word)
+# GENERARE CLASSIFICATION REPORT (Text pentru Word)
 report = classification_report(y_true, y_pred, target_names=class_names)
 print("\n--- CLASSIFICATION REPORT ---")
 print(report)
@@ -51,7 +51,7 @@ with open("evaluation_results.txt", "w", encoding="utf-8") as f:
     f.write("=== CLASSIFICATION REPORT ===\n")
     f.write(report)
 
-# 6. GENERARE MATRICE DE CONFUZIE (Vizuallizare pentru Prezentare)
+# GENERARE MATRICE DE CONFUZIE (Vizuallizare pentru Prezentare)
 cm = confusion_matrix(y_true, y_pred)
 plt.figure(figsize=(12, 10))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Greens', 

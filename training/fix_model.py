@@ -6,9 +6,6 @@ model = tf.keras.models.load_model("garbage_model_augmentation.h5")
 print("Inițializăm convertorul TFLite...")
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 
-# --- REZOLVAREA ERORII DE FULLY_CONNECTED ---
-# Aceste linii forțează convertorul să folosească doar operațiuni de bază 
-# și să permită fallback-ul către operațiuni compatibile mai vechi.
 converter.target_spec.supported_ops = [
     tf.lite.OpsSet.TFLITE_BUILTINS,
     tf.lite.OpsSet.SELECT_TF_OPS

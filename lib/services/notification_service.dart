@@ -6,7 +6,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
-    // 1. Setări Android - ATENȚIE: Verifică dacă @mipmap/ic_launcher există în proiect!
+    
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -25,15 +25,15 @@ class NotificationService {
         debugPrint("Utilizatorul a apăsat pe notificare");
       },
     );
-    debugPrint("🔔 NotificationService Initialized");
+    debugPrint("NotificationService Initialized");
   }
 
   static Future<void> showNotification(String title, String body) async {
-    debugPrint("🚀 Încerc să afișez notificarea: $title");
+    debugPrint("Încerc să afișez notificarea: $title");
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'scan_results_channel_v3', // Schimbăm ID-ul ca să forțăm un canal nou
+      'scan_results_channel_v3', 
       'Rezultate Scanare AI', 
       importance: Importance.max,
       priority: Priority.high,
@@ -52,9 +52,9 @@ class NotificationService {
         body,
         platformChannelSpecifics,
       );
-      debugPrint("✅ Notificare trimisă cu succes la sistem");
+      debugPrint("Notificare trimisă cu succes la sistem");
     } catch (e) {
-      debugPrint("❌ Eroare la showNotification: $e");
+      debugPrint("Eroare la showNotification: $e");
     }
   }
 }

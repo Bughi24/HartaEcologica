@@ -39,7 +39,6 @@ class _ScanPageState extends State<ScanPage> {
       debugPrint("Eroare model: $e");
     }
   }
-// --- REPARARE METODA pickImage ---
   Future<void> pickImage() async {
     final picker = ImagePicker();
     
@@ -67,7 +66,6 @@ class _ScanPageState extends State<ScanPage> {
     await classify(File(file.path));
   }
 
-  // --- REPARARE METODA classify ---
   Future<void> classify(File imageFile) async {
     final DatabaseService db = DatabaseService();
 
@@ -104,7 +102,6 @@ class _ScanPageState extends State<ScanPage> {
       if (maxScore < 0.55) detectedLabel = 'trash';
 
       if (mounted) {
-        // IMPORTANT: Oprim animația ÎNAINTE de a pleca de pe pagină
         setState(() => isInferencing = false);
         await db.saveScan(detectedLabel, maxScore);
         Navigator.pushNamed(
@@ -124,8 +121,6 @@ class _ScanPageState extends State<ScanPage> {
         );
       }
     } finally {
-      // Blocul FINALLY se execută MEREU (chiar dacă e succes, chiar dacă e eroare)
-      // Este "siguranța" care oprește loading-ul infinit
       if (mounted) {
         setState(() => isInferencing = false);
       }
@@ -154,7 +149,6 @@ class _ScanPageState extends State<ScanPage> {
     super.dispose();
   }
 
-  // --- INTERFAȚA STILIZATĂ ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(

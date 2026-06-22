@@ -70,7 +70,6 @@ class _TrashSelectorAppState extends State<TrashSelectorApp> {
 
     // Ascultăm notificările primite în timp ce aplicația este deschisă (Foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      // --- REZOLVARE NOTIFICĂRI MULTIPLE ---
       if (message.messageId == _lastMessageId) return; 
       _lastMessageId = message.messageId;
 

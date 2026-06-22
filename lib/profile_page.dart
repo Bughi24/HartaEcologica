@@ -360,10 +360,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // GRAFIC PIE
-  // ---------------------------------------------------------------------------
-
   Widget _buildPieChart(Map<String, int> categories) {
     return SizedBox(
       height: 180,
@@ -439,10 +435,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // STATISTICI
-  // ---------------------------------------------------------------------------
-
   Widget _buildStatSection(int totalScans, int totalPoints) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -493,13 +485,13 @@ class ProfilePage extends StatelessWidget {
     
     // Luăm doar scanările din ultimele 7 zile
     if (dayDifference < 7) {
-      int weekDay = date.weekday; // 1 = Luni, 7 = Duminică
+      int weekDay = date.weekday; 
       dayCounts[weekDay] = (dayCounts[weekDay] ?? 0) + 1;
     }
   }
 
   return List.generate(7, (index) {
-    // index 0..6 corespunde zilelor L..D (sau ordonate după data curentă)
+    // index 0..6 corespunde zilelor L..D 
     int day = index + 1; 
     return BarChartGroupData(
       x: day,
@@ -562,9 +554,7 @@ Widget _buildActivityChart(List<QueryDocumentSnapshot> docs) {
     ),
   );
 }
-  // ---------------------------------------------------------------------------
-  // MENIU
-  // ---------------------------------------------------------------------------
+ 
 
   Widget _buildMenuSection(BuildContext context) {
     return Column(
@@ -606,9 +596,7 @@ Widget _buildActivityChart(List<QueryDocumentSnapshot> docs) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Dialog detalii badge
-// ---------------------------------------------------------------------------
+
 
 class _BadgeDetailDialog extends StatelessWidget {
   final BadgeDefinition badge;
