@@ -54,3 +54,5 @@ training/garabage_classification/
 test/
 datasets/
 
+resnet50_augmented.keras
+*.keras

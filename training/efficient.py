@@ -12,7 +12,7 @@ train_ds = tf.keras.utils.image_dataset_from_directory(
     'training/garbage_classification',
     validation_split=0.2,
     subset="training",
-    seed=123,
+    seed=42,
     image_size=(IMG_SIZE, IMG_SIZE),
     batch_size=BATCH_SIZE,
     label_mode='categorical'
@@ -22,7 +22,7 @@ val_ds = tf.keras.utils.image_dataset_from_directory(
     'training/garbage_classification',
     validation_split=0.2,
     subset="validation",
-    seed=123,
+    seed=42,
     image_size=(IMG_SIZE, IMG_SIZE),
     batch_size=BATCH_SIZE,
     label_mode='categorical'

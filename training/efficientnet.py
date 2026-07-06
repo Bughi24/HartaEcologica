@@ -13,20 +13,12 @@ IMG_SIZE = 224
 BATCH_SIZE = 32
 EPOCHS = 25
 
-# Generator cu augmentare pentru train
+
 train_datagen = ImageDataGenerator(
     preprocessing_function=preprocess_input,
-    validation_split=0.2,
-    rotation_range=25,
-    width_shift_range=0.15,
-    height_shift_range=0.15,
-    shear_range=0.1,
-    zoom_range=0.2,
-    horizontal_flip=True,
-    fill_mode='nearest'
+    validation_split=0.2
 )
 
-# Generator fara augmentare pentru validare
 val_datagen = ImageDataGenerator(
     preprocessing_function=preprocess_input,
     validation_split=0.2
@@ -54,7 +46,6 @@ val_data = val_datagen.flow_from_directory(
 classes = list(train_data.class_indices.keys())
 num_classes = len(classes)
 
-# Class weights
 labels_raw = train_data.classes
 class_weights = compute_class_weight(
     class_weight='balanced',
@@ -98,10 +89,10 @@ model.compile(
 callbacks = [
     EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
     ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=2, min_lr=1e-6),
-    ModelCheckpoint("best_efficientnet.h5", monitor='val_loss', save_best_only=True)
+    ModelCheckpoint("best_efficientnet_no_aug.h5", monitor='val_loss', save_best_only=True)
 ]
 
-print("Incepe antrenarea EfficientNetV2B0 + Augmentare...")
+print("Incepe antrenarea EfficientNetV2B0")
 model.fit(
     train_data,
     validation_data=val_data,
@@ -124,4 +115,4 @@ print(report)
 
 with open("efficientnetv2b0_report.txt", "w", encoding="utf-8") as f:
     f.write(report)
-print("Raport salvat in efficientnetv2b0_report.txt!")  
+print("Raport salvat in efficientnetv2b0_report.txt!")

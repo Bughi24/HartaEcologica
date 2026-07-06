@@ -11,20 +11,11 @@ IMG_SIZE = 224
 BATCH_SIZE = 32
 EPOCHS = 25
 
-# Generator cu augmentare pentru train
 train_datagen = ImageDataGenerator(
     preprocessing_function=preprocess_input,
-    validation_split=0.2,
-    rotation_range=25,
-    width_shift_range=0.15,
-    height_shift_range=0.15,
-    shear_range=0.1,
-    zoom_range=0.2,
-    horizontal_flip=True,
-    fill_mode='nearest'
+    validation_split=0.2
 )
 
-# Generator fara augmentare pentru validare
 val_datagen = ImageDataGenerator(
     preprocessing_function=preprocess_input,
     validation_split=0.2
@@ -70,11 +61,7 @@ def build_resnet_model(num_classes):
         weights='imagenet'
     )
 
-    # Fine-tuning ultimele 40 straturi
-    for layer in base_model.layers[:-40]:
-        layer.trainable = False
-    for layer in base_model.layers[-40:]:
-        layer.trainable = True
+    base_model.trainable = False
 
     x = base_model.output
     x = layers.GlobalAveragePooling2D()(x)
@@ -85,7 +72,7 @@ def build_resnet_model(num_classes):
     model = tf.keras.Model(
         inputs=base_model.input,
         outputs=outputs,
-        name="ResNet50_Waste_Classifier"
+        name="ResNet50"
     )
     return model
 
@@ -103,7 +90,7 @@ callbacks = [
     ModelCheckpoint("best_resnet50.h5", monitor='val_loss', save_best_only=True)
 ]
 
-print("Începe antrenarea cu ResNet50 + Augmentare...")
+print("Începe antrenarea cu ResNet50...")
 model.fit(
     train_data,
     validation_data=val_data,
@@ -112,7 +99,7 @@ model.fit(
     callbacks=callbacks
 )
 
-model.save('resnet50_augmented.keras')
+model.save('resnet50.keras')
 print("Modelul ResNet50 a fost salvat!")
 
 # EVALUARE
@@ -124,6 +111,6 @@ y_true = val_data.classes
 report = classification_report(y_true, y_pred, target_names=classes)
 print(report)
 
-with open("resnet50_aug_report.txt", "w", encoding="utf-8") as f:
+with open("resnet50_report.txt", "w", encoding="utf-8") as f:
     f.write(report)
-print("Raport salvat in resnet50_aug_report.txt!")
+print("Raport salvat in resnet50_report.txt!")

@@ -22,11 +22,11 @@ class _AddBinPageState extends State<AddBinPage> {
   bool isBusy = false;
 
   // Variabile de stare pentru procesul de clasificare
-  bool isValidBin = false;     // Flag pentru rezultatul validării AI
-  bool hasAnalyzed = false;    // Indică finalizarea procesului de inferență
+  bool isValidBin = false;     // Flag pentru rezultatul validarii AI
+  bool hasAnalyzed = false;    // Indica finalizarea procesului de inferență
   Set<String> selectedTypes = {'plastic'}; // Tipul de deșeu implicit
 
-  // Lista categoriilor de reciclare disponibile (sincronizată cu baza de date)
+  // Lista categoriilor de reciclare disponibile (sincronizata cu baza de date)
   final List<String> binTypes = ['plastic', 'hârtie', 'sticlă', 'metal', 'baterii'];
 
   // Configurare parametri model neural
@@ -42,21 +42,21 @@ class _AddBinPageState extends State<AddBinPage> {
     });
   }
 
-  // Inițializează interpretorul TFLite și încarcă etichetele claselor.
+  // Initializeaza interpretorul TFLite și încarcă etichetele claselor.
   Future<void> _initModel() async {
     try {
       interpreter = await Interpreter.fromAsset('assets/model/bin_model.tflite');
       final rawLabels = await rootBundle.loadString('assets/model/bin_labels.txt');
       labels = rawLabels.split('\n').where((e) => e.trim().isNotEmpty).toList();
     } catch (e) {
-      debugPrint("Eroare la inițializarea modelului: $e");
+      debugPrint("Eroare la initializearea modelului: $e");
     }
   }
 
-  // Gestionează captura imaginii folosind camera dispozitivului.
+  // Gestioneaza captura imaginii folosind camera dispozitivului.
   Future<void> pickImage() async {
     final picker = ImagePicker();
-    // Limităm rezoluția pentru optimizarea performanței
+    // Limitam rezolutia pentru optimizarea performantei
     final XFile? file = await picker.pickImage(source: ImageSource.camera, maxWidth: 800);
 
     // Gestionare navigare înapoi în caz de anulare
@@ -72,7 +72,6 @@ class _AddBinPageState extends State<AddBinPage> {
         isValidBin = false;
       });
       
-      // Mică latență pentru actualizarea UI-ului înainte de procesare intensivă
       await Future.delayed(const Duration(milliseconds: 200));
       await validateBin(File(file.path));
     }

@@ -11,7 +11,6 @@ from sklearn.metrics import classification_report
 IMG_SIZE = 224
 batch_size = 32
 
-# Generator SEPARAT pentru train (cu augmentare) si val (fara augmentare)
 train_datagen = ImageDataGenerator(
     rescale=1./255,
     validation_split=0.2,

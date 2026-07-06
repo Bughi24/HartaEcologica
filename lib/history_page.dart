@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; // Pentru formatarea datei
+import 'package:intl/intl.dart'; 
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -18,7 +18,6 @@ class HistoryPage extends StatelessWidget {
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // Citim sub-colecția 'scans' a utilizatorului curent
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(user?.uid)
@@ -50,7 +49,7 @@ class HistoryPage extends StatelessWidget {
               var scan = snapshot.data!.docs[index];
               var data = scan.data() as Map<String, dynamic>;
               
-              // Formatare dată
+              // Formatare data
               DateTime date = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
               String formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(date);
 

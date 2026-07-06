@@ -9,24 +9,15 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLRO
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report
 
-IMG_SIZE = 299  # InceptionV3 necesita 299x299
+IMG_SIZE = 299  
 BATCH_SIZE = 32
 EPOCHS = 25
 
-# Generator cu augmentare pentru train
 train_datagen = ImageDataGenerator(
     preprocessing_function=preprocess_input,
-    validation_split=0.2,
-    rotation_range=25,
-    width_shift_range=0.15,
-    height_shift_range=0.15,
-    shear_range=0.1,
-    zoom_range=0.2,
-    horizontal_flip=True,
-    fill_mode='nearest'
+    validation_split=0.2
 )
 
-# Generator fara augmentare pentru validare
 val_datagen = ImageDataGenerator(
     preprocessing_function=preprocess_input,
     validation_split=0.2
@@ -87,7 +78,7 @@ outputs = Dense(num_classes, activation='softmax')(x)
 model = Model(
     inputs=base_model.input,
     outputs=outputs,
-    name="InceptionV3_Augmented"
+    name="InceptionV3"
 )
 
 model.compile(
@@ -99,10 +90,10 @@ model.compile(
 callbacks = [
     EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
     ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=2, min_lr=1e-6),
-    ModelCheckpoint("best_inception_aug.h5", monitor='val_loss', save_best_only=True)
+    ModelCheckpoint("best_inception_no_aug.h5", monitor='val_loss', save_best_only=True)
 ]
 
-print("Incepe antrenarea InceptionV3 + Augmentare + Fine-tuning...")
+print("Incepe antrenarea InceptionV3 (FĂRĂ augmentare) + Fine-tuning...")
 model.fit(
     train_data,
     validation_data=val_data,
@@ -111,7 +102,7 @@ model.fit(
     callbacks=callbacks
 )
 
-model.save("inception_v3_augmented.keras")
+model.save("inception_v3_no_aug.keras")
 print("Model salvat!")
 
 # EVALUARE
@@ -123,6 +114,6 @@ y_true = val_data.classes
 report = classification_report(y_true, y_pred, target_names=classes)
 print(report)
 
-with open("inception_aug_report.txt", "w", encoding="utf-8") as f:
+with open("inception_no_aug_report.txt", "w", encoding="utf-8") as f:
     f.write(report)
-print("Raport salvat in inception_aug_report.txt!")
+print("Raport salvat in inception_no_aug_report.txt!")
