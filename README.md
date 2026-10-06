@@ -87,9 +87,9 @@ Flutter, Dart, TensorFlow / Keras, TensorFlow Lite, Firebase, flutter_map, Dio
 
 ## Screenshots
 
-| Classification | Map |
-|---|---|
-| ![classification](docs/screenshot1.png) | ![map](docs/screenshot2.png) |
+| Classification | Map | Offline Map |
+|---|---|---|
+| ![classification](docs/screenshot1.jpg) | ![map](docs/screenshot2.jpg) | ![offline](docs/screenshot3.jpg) |
 
 ## Author
 
