@@ -56,3 +56,4 @@ datasets/
 
 resnet50_augmented.keras
 *.keras
+.env
